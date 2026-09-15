@@ -20,6 +20,11 @@ const _configuration = GatewayConfiguration(
   merchantName: 'NBE Plugin Integration Test',
   merchantUrl: 'https://example.com',
   region: GatewayRegion.mtf,
+  // Apple Pay availability requires a merchant identifier; this placeholder is never used to
+  // present the sheet in these tests.
+  wallet: WalletConfiguration(
+    applePayMerchantIdentifier: 'merchant.com.example.integrationtest',
+  ),
   challengeUi: ChallengeUiCustomization(
     toolbar: ChallengeToolbarStyle(
       backgroundColor: Color(0xFF006A4E),
@@ -166,7 +171,10 @@ void main() {
       ),
     );
 
-    expect(wallet, isIn([DeviceWallet.googlePay, DeviceWallet.none]));
+    expect(
+      wallet,
+      isIn([DeviceWallet.googlePay, DeviceWallet.applePay, DeviceWallet.none]),
+    );
     debugPrint('Available wallet on this device: ${wallet.name}');
   });
 }
