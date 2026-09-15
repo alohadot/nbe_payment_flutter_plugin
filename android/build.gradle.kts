@@ -70,7 +70,25 @@ android {
     }
 }
 
+// The Gateway SDK is not published to a public registry; it ships inside this plugin as a
+// local Maven repository. Gradle resolves this module's dependencies with the repositories of
+// the consuming app, so registering the repository on this module alone is not enough — it
+// has to be visible to every project in the host build.
+val gatewaySdkRepository = file("gateway-repo")
+rootProject.allprojects {
+    repositories {
+        maven {
+            url = uri(gatewaySdkRepository)
+            content { includeGroup("com.mastercard.gateway") }
+        }
+    }
+}
+
+val gatewaySdkVersion = "2.0.17"
+
 dependencies {
+    implementation("com.mastercard.gateway:Mobile_SDK_Android:$gatewaySdkVersion")
+
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }
