@@ -1,0 +1,381 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2.3 effective-5.10 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)
+// swift-module-flags: -target x86_64-apple-ios12.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name Gateway
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2.3
+import Foundation
+@_exported import Gateway
+import Swift
+import UIKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+import uSDK
+public class RequestLogger {
+  public var tag: Swift.String
+  public var logFunction: (Swift.String) -> Swift.Void
+  public init(tag: Swift.String = "", logFunction: @escaping (Swift.String) -> Swift.Void = { print($0) })
+  public func log(request: Foundation.URLRequest)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func log(response: Foundation.URLResponse?, data: Foundation.Data?)
+  #endif
+  @objc deinit
+}
+public var loggingEnabled: Swift.Bool
+public var logRecorder: ((Swift.String) -> Swift.Void)?
+@_hasMissingDesignatedInitializers public class AuthenticationHandler {
+  public static let shared: Gateway.AuthenticationHandler
+  public func authenticate(_ authenticationRequest: Gateway.AuthenticationRequest, completion: @escaping (Gateway.AuthenticationResponse) -> Swift.Void)
+  @available(iOS 13.0.0, *)
+  public func authenticate(_ authenticationRequest: Gateway.AuthenticationRequest) async -> Gateway.AuthenticationResponse
+  @objc deinit
+}
+public enum HTTPMethod : Swift.String {
+  case get
+  case put
+  case post
+  case delete
+  case head
+  case trace
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.String)
+  #endif
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum AuthenticationError : Swift.Error, Swift.Equatable {
+  case missingParameter(Swift.String)
+  case other(Swift.String)
+  case invalidChallengeCompletionURL(Swift.String)
+  case notInitialized
+  case challengeCancelledByUser
+  case challengeTimedOut
+  case recommendation_ResubmitWithAlternativePaymentDetails
+  case recommendation_AbandonOrder
+  case recommendation_DoNotProceed
+  case recommendation_Unknown(Swift.String)
+  public static func == (a: Gateway.AuthenticationError, b: Gateway.AuthenticationError) -> Swift.Bool
+}
+extension Gateway.AuthenticationError : Foundation.LocalizedError {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var errorDescription: Swift.String? {
+    get
+  }
+  #endif
+}
+@dynamicMemberLookup public enum GatewayMap {
+  case `nil`
+  case empty
+  case string(Swift.String)
+  case int(Swift.Int)
+  case double(Swift.Double)
+  case bool(Swift.Bool)
+  case array([Gateway.GatewayMap])
+  case map([Swift.String : Gateway.GatewayMap])
+  public enum DecodingError : Swift.Error {
+    case invalidData([any Swift.CodingKey])
+  }
+  public static var `default`: Gateway.GatewayMap
+  public init()
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(_ value: Any?)
+  #endif
+  public init(array: [Any])
+  public init(map: [Swift.String : Any])
+}
+extension Gateway.GatewayMap {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var value: Any? {
+    get
+    set
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var stringValue: Swift.String? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var intValue: Swift.Int? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var doubleValue: Swift.Double? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var boolValue: Swift.Bool? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var arrayValue: [Any]? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var dictionaryValue: [Swift.String : Any]? {
+    get
+  }
+  #endif
+}
+extension Gateway.GatewayMap : Swift.Codable {
+  public func encode(to encoder: any Swift.Encoder) throws
+  public init(from decoder: any Swift.Decoder) throws
+}
+extension Gateway.GatewayMap : Swift.Equatable {
+  public static func == (a: Gateway.GatewayMap, b: Gateway.GatewayMap) -> Swift.Bool
+}
+extension Gateway.GatewayMap {
+  public func get(_ keyPath: Swift.String) -> Gateway.GatewayMap
+  public mutating func set(_ object: Gateway.GatewayMap, at keyPath: Swift.String)
+  public mutating func clear(_ keyPath: Swift.String)
+  public func get(_ index: Swift.Int) -> Gateway.GatewayMap
+  public mutating func set(_ object: Gateway.GatewayMap, at index: Swift.Int)
+}
+extension Gateway.GatewayMap {
+  public subscript(index: Swift.Int) -> Gateway.GatewayMap {
+    get
+    set(newValue)
+  }
+  public subscript(key: Swift.String) -> Gateway.GatewayMap {
+    get
+    set(newValue)
+  }
+  public subscript(dynamicMember member: Swift.String) -> Gateway.GatewayMap {
+    get
+    set(newValue)
+  }
+}
+extension Gateway.GatewayMap : Swift.ExpressibleByDictionaryLiteral {
+  public init(dictionaryLiteral elements: (Swift.String, Any)...)
+  public typealias Key = Swift.String
+  public typealias Value = Any
+}
+public struct AuthenticationRequest {
+  public var navController: UIKit.UINavigationController
+  public var sessionId: Swift.String
+  public var orderId: Swift.String
+  public var transactionId: Swift.String
+  public var apiVersion: Swift.String
+  public var additionalInitiateAuthenticationParameters: Gateway.GatewayMap?
+  public var additionalAuthenticatePayerParameters: Gateway.GatewayMap?
+  public var locale: Swift.String
+  public var theme: Gateway.ChallengeTheme?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(navController: UIKit.UINavigationController, apiVersion: Swift.String, sessionId: Swift.String, orderId: Swift.String, transactionId: Swift.String, theme: Gateway.ChallengeTheme? = nil)
+  #endif
+}
+public class ChallengeTheme {
+  @objc public var primaryBackgroundColor: UIKit.UIColor
+  @objc public var secondaryBackgroundColor: UIKit.UIColor
+  @objc public var buttonBackgroundColor: UIKit.UIColor
+  @objc public var buttonTextColor: UIKit.UIColor
+  @objc public var labelBackgroundColor: UIKit.UIColor
+  @objc public var navigationBarBarTintColor: UIKit.UIColor
+  @objc public var navigationBarTintColor: UIKit.UIColor
+  @objc public var navigationBarTitleTextColor: UIKit.UIColor
+  @objc public var standardTextColor: UIKit.UIColor
+  @objc public var tintColor: UIKit.UIColor
+  @objc public var cornerRadius: CoreFoundation.CGFloat
+  @objc public var headerFont: UIKit.UIFont
+  @objc public var headerTextColor: UIKit.UIColor
+  @objc public var standardFont: UIKit.UIFont
+  @objc public var buttonTitleFont: UIKit.UIFont
+  @objc public var borderColor: UIKit.UIColor
+  @objc public var borderWidth: CoreFoundation.CGFloat
+  @objc public var keyboardApperance: UIKit.UIKeyboardAppearance
+  @objc public var title: Swift.String
+  @objc public var titleColor: UIKit.UIColor
+  public var cancelText: Swift.String
+  public var cancelTextColor: UIKit.UIColor
+  public var appearanceType: Gateway.ChallengeTheme.AppearanceType
+  public enum AppearanceType {
+    case light
+    case dark
+    public static func == (a: Gateway.ChallengeTheme.AppearanceType, b: Gateway.ChallengeTheme.AppearanceType) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public init()
+  @objc deinit
+}
+extension Gateway.ChallengeTheme : uSDK.UThemable {
+}
+public protocol JSONEncoderProtocol {
+  func encode<T>(_ value: T) throws -> Foundation.Data where T : Swift.Encodable
+}
+extension Foundation.JSONEncoder : Gateway.JSONEncoderProtocol {
+}
+public protocol JSONDecoderProtocol {
+  func decode<T>(_ type: T.Type, from data: Foundation.Data) throws -> T where T : Swift.Decodable
+}
+extension Foundation.JSONDecoder : Gateway.JSONDecoderProtocol {
+}
+public protocol Customizable {
+  #if compiler(>=5.3) && $NonescapableTypes
+  var textFont: UIKit.UIFont? { get set }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  var textColor: UIKit.UIColor? { get set }
+  #endif
+}
+public struct ChallengeCustomization {
+  public var toolbar: Gateway.ChallengeCustomization.Toolbar {
+    get
+    set
+  }
+  public var label: Gateway.ChallengeCustomization.Label {
+    get
+    set
+  }
+  public var textBox: Gateway.ChallengeCustomization.TextBox {
+    get
+    set
+  }
+  public var buttons: Gateway.ChallengeCustomization.Buttons<Gateway.ChallengeCustomization.ButtonType>
+  public var customButtons: Gateway.ChallengeCustomization.Buttons<Swift.String>
+  public init()
+}
+extension Gateway.ChallengeCustomization {
+  public struct Toolbar : Gateway.Customizable {
+    public var textFont: UIKit.UIFont?
+    public var textColor: UIKit.UIColor?
+    public var backgroundColor: UIKit.UIColor?
+    public var headerText: Swift.String?
+    public var buttonText: Swift.String?
+    public init()
+  }
+  public struct Label : Gateway.Customizable {
+    public var textFont: UIKit.UIFont?
+    public var textColor: UIKit.UIColor?
+    public var headingTextFont: UIKit.UIFont?
+    public var headingTextColor: UIKit.UIColor?
+    public init()
+  }
+  public struct TextBox : Gateway.Customizable {
+    public var textFont: UIKit.UIFont?
+    public var textColor: UIKit.UIColor?
+    public var borderWidth: Swift.Int?
+    public var borderColor: UIKit.UIColor?
+    public var cornerRadius: Swift.Int?
+    public init()
+  }
+  public struct Button : Gateway.Customizable {
+    public var textFont: UIKit.UIFont?
+    public var textColor: UIKit.UIColor?
+    public var backgroundColor: UIKit.UIColor?
+    public var cornerRadius: Swift.Int?
+    public init()
+  }
+  public enum ButtonType : Swift.Int {
+    case verify
+    case `continue`
+    case next
+    case cancel
+    case resend
+    #if compiler(>=5.3) && $NonescapableTypes
+    public init?(rawValue: Swift.Int)
+    #endif
+    public typealias RawValue = Swift.Int
+    public var rawValue: Swift.Int {
+      get
+    }
+  }
+}
+extension Gateway.ChallengeCustomization {
+  public struct Buttons<KeyType> where KeyType : Swift.Hashable {
+    public subscript(key: KeyType) -> Gateway.ChallengeCustomization.Button {
+      get
+      set(newValue)
+    }
+  }
+}
+extension Gateway.GatewayAPI : Foundation.URLSessionDelegate {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func urlSession(_ session: Foundation.URLSession, didReceive challenge: Foundation.URLAuthenticationChallenge, completionHandler: @escaping (Foundation.URLSession.AuthChallengeDisposition, Foundation.URLCredential?) -> Swift.Void)
+  #endif
+}
+public struct GatewayRegion : Swift.Equatable {
+  public let id: Swift.String
+  public let name: Swift.String
+  public let baseURL: Swift.String
+  public static func == (a: Gateway.GatewayRegion, b: Gateway.GatewayRegion) -> Swift.Bool
+}
+extension Gateway.GatewayRegion {
+  public static let asiaPacific: Gateway.GatewayRegion
+  public static let europe: Gateway.GatewayRegion
+  public static let northAmerica: Gateway.GatewayRegion
+  public static let mtf: Gateway.GatewayRegion
+  public static let india: Gateway.GatewayRegion
+  public static let china: Gateway.GatewayRegion
+  public static let saudiArabia: Gateway.GatewayRegion
+  public static func other(id: Swift.String, name: Swift.String, baseURL: Swift.String) -> Gateway.GatewayRegion
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class GatewayAPI : ObjectiveC.NSObject {
+  public static let shared: Gateway.GatewayAPI
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  public func updateSession(_ session: Swift.String, apiVersion: Swift.String, payload: Gateway.GatewayMap, completion: @escaping (Swift.Result<Gateway.GatewayMap, any Swift.Error>) -> Swift.Void) -> Foundation.URLSessionTask?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  public func initiateAuthentication(_ session: Swift.String, apiVersion: Swift.String, orderId: Swift.String, transactionId: Swift.String, payload: Gateway.GatewayMap = GatewayMap(), completion: @escaping (Swift.Result<Gateway.GatewayMap, any Swift.Error>) -> Swift.Void) -> Foundation.URLSessionTask?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  public func authenticatePayer(_ session: Swift.String, apiVersion: Swift.String, orderId: Swift.String, transactionId: Swift.String, payload: Gateway.GatewayMap, completion: @escaping (Swift.Result<Gateway.GatewayMap, any Swift.Error>) -> Swift.Void) -> Foundation.URLSessionTask?
+  #endif
+  @objc deinit
+}
+public enum GatewayError : Swift.Error, Swift.Equatable {
+  case failedRequest(Swift.Int, Swift.String)
+  case invalidAPIVersion(Swift.String)
+  case missingResponse
+  case unexpectedResponseType
+  public static func == (a: Gateway.GatewayError, b: Gateway.GatewayError) -> Swift.Bool
+}
+extension Gateway.GatewayError : Foundation.LocalizedError {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var errorDescription: Swift.String? {
+    get
+  }
+  #endif
+}
+public struct AuthenticationResponse {
+  public enum Recommendation {
+    case proceed
+    case doNotProceed
+    public static func == (a: Gateway.AuthenticationResponse.Recommendation, b: Gateway.AuthenticationResponse.Recommendation) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public var recommendation: Gateway.AuthenticationResponse.Recommendation
+  public var authenticationPerformed: Swift.Bool
+  public var challengePerformed: Swift.Bool
+  public var sdkTransactionId: Swift.String?
+  public var threeDS2TransactionStatus: Swift.String?
+  public var error: (any Swift.Error)?
+}
+@_hasMissingDesignatedInitializers public class GatewaySDK {
+  public static let shared: Gateway.GatewaySDK
+  public func initialize(merchantId: Swift.String, region: Gateway.GatewayRegion, locale: Swift.String = Locale.current.identifier, challengeTheme: Gateway.ChallengeTheme = ChallengeTheme())
+  @objc deinit
+}
+extension Gateway.HTTPMethod : Swift.Equatable {}
+extension Gateway.HTTPMethod : Swift.Hashable {}
+extension Gateway.HTTPMethod : Swift.RawRepresentable {}
+extension Gateway.ChallengeTheme.AppearanceType : Swift.Equatable {}
+extension Gateway.ChallengeTheme.AppearanceType : Swift.Hashable {}
+extension Gateway.ChallengeCustomization.ButtonType : Swift.Equatable {}
+extension Gateway.ChallengeCustomization.ButtonType : Swift.Hashable {}
+extension Gateway.ChallengeCustomization.ButtonType : Swift.RawRepresentable {}
+extension Gateway.AuthenticationResponse.Recommendation : Swift.Equatable {}
+extension Gateway.AuthenticationResponse.Recommendation : Swift.Hashable {}
