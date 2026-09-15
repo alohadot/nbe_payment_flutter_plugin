@@ -11,7 +11,6 @@ import com.example.nbe_payment_flutter_plugin.generated.SessionMessage
 import com.example.nbe_payment_flutter_plugin.generated.WalletRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.WalletResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeOperationInProgress
-import com.example.nbe_payment_flutter_plugin.generated.errorCodeUnknown
 import com.example.nbe_payment_flutter_plugin.sdk.GatewaySdkAdapter
 
 /**
@@ -51,15 +50,21 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
         runExclusively(callback) { complete -> sdkAdapter.authenticatePayer(request, complete) }
     }
 
+    // Availability presents no UI and changes no session, so it may run alongside another
+    // operation (same rule as the Dart layer).
     override fun getAvailableWallet(
         request: WalletRequestMessage,
         callback: (Result<DeviceWallet>) -> Unit,
-    ) = callback(notImplementedYet("getAvailableWallet"))
+    ) {
+        runOnce(callback) { complete -> sdkAdapter.getAvailableWallet(request, complete) }
+    }
 
     override fun payWithDeviceWallet(
         request: WalletRequestMessage,
         callback: (Result<WalletResultMessage>) -> Unit,
-    ) = callback(notImplementedYet("payWithDeviceWallet"))
+    ) {
+        runExclusively(callback) { complete -> sdkAdapter.payWithDeviceWallet(request, complete) }
+    }
 
     private fun <T> runExclusively(
         callback: (Result<T>) -> Unit,
@@ -78,12 +83,22 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
         }
 
         isOperationInProgress = true
+        runOnce({ result ->
+            isOperationInProgress = false
+            callback(result)
+        }, operation)
+    }
+
+    /** Replies to Flutter exactly once, converting thrown exceptions into channel errors. */
+    private fun <T> runOnce(
+        callback: (Result<T>) -> Unit,
+        operation: (complete: (Result<T>) -> Unit) -> Unit,
+    ) {
         var isCompleted = false
         val complete: (Result<T>) -> Unit = { result ->
             // An SDK that reports twice must not produce a second reply to Flutter.
             if (!isCompleted) {
                 isCompleted = true
-                isOperationInProgress = false
                 callback(result)
             }
         }
@@ -94,12 +109,4 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
             complete(Result.failure(unexpectedBridgeError(error)))
         }
     }
-
-    // Temporary: replaced method by method in the next implementation steps.
-    private fun <T> notImplementedYet(method: String): Result<T> = Result.failure(
-        gatewayBridgeError(
-            code = errorCodeUnknown,
-            message = "$method is not implemented on Android yet.",
-        ),
-    )
 }

@@ -148,4 +148,25 @@ void main() {
       );
     },
   );
+
+  // Availability depends on the device (Google Play services, signed-in account), so only a
+  // well-formed answer is checked, not which wallet is reported.
+  testWidgets('wallet availability returns an answer without UI', (
+    tester,
+  ) async {
+    final gateway = NbePaymentGateway();
+    if (!gateway.isInitialized) {
+      await gateway.initialize(_configuration);
+    }
+
+    final wallet = await gateway.getAvailableWallet(
+      const WalletPaymentRequest(
+        merchantDisplayName: 'Integration Test',
+        countryCode: 'EG',
+      ),
+    );
+
+    expect(wallet, isIn([DeviceWallet.googlePay, DeviceWallet.none]));
+    debugPrint('Available wallet on this device: ${wallet.name}');
+  });
 }

@@ -1,6 +1,11 @@
 package com.example.nbe_payment_flutter_plugin.bridge
 
+import android.content.Intent
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.CardNetwork
+import com.example.nbe_payment_flutter_plugin.generated.DeviceWallet
+import com.example.nbe_payment_flutter_plugin.generated.WalletRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.WalletResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationOutcomeMessage
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
@@ -70,6 +75,55 @@ internal class GatewayHostApiImplTest {
             calls += "authenticatePayer"
             pendingAuthenticationCallbacks += callback
         }
+
+        val pendingAvailabilityCallbacks = mutableListOf<(Result<DeviceWallet>) -> Unit>()
+        val pendingWalletCallbacks = mutableListOf<(Result<WalletResultMessage>) -> Unit>()
+
+        override fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit) {
+            calls += "getAvailableWallet"
+            pendingAvailabilityCallbacks += callback
+        }
+
+        override fun payWithDeviceWallet(
+            request: WalletRequestMessage,
+            callback: (Result<WalletResultMessage>) -> Unit,
+        ) {
+            calls += "payWithDeviceWallet"
+            pendingWalletCallbacks += callback
+        }
+
+        override fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?) = false
+    }
+
+    private val walletRequest = WalletRequestMessage(
+        merchantDisplayName = "My Store",
+        countryCode = "EG",
+        supportedNetworks = listOf(CardNetwork.VISA),
+        isTestEnvironment = true,
+        session = session,
+    )
+
+    @Test
+    fun walletAvailabilityRunsWhileAnotherOperationIsInProgress() {
+        initialize()
+        val availability = mutableListOf<Result<DeviceWallet>>()
+
+        hostApi.getAvailableWallet(walletRequest) { availability += it }
+        adapter.pendingAvailabilityCallbacks.single()(Result.success(DeviceWallet.GOOGLE_PAY))
+
+        assertEquals(listOf("initialize", "getAvailableWallet"), adapter.calls)
+        assertEquals(DeviceWallet.GOOGLE_PAY, availability.single().getOrNull())
+    }
+
+    @Test
+    fun walletPaymentIsExclusive() {
+        val walletResults = mutableListOf<Result<WalletResultMessage>>()
+        hostApi.payWithDeviceWallet(walletRequest) { walletResults += it }
+
+        initialize()
+
+        assertEquals(listOf("payWithDeviceWallet"), adapter.calls)
+        assertEquals(errorCodeOperationInProgress, results.single().bridgeError().code)
     }
 
     private val adapter = ControllableSdkAdapter()

@@ -1,11 +1,15 @@
 package com.example.nbe_payment_flutter_plugin.sdk
 
+import android.content.Intent
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
+import com.example.nbe_payment_flutter_plugin.generated.DeviceWallet
 import com.example.nbe_payment_flutter_plugin.generated.GatewayFieldMessage
 import com.example.nbe_payment_flutter_plugin.generated.InitializeRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.SessionMessage
+import com.example.nbe_payment_flutter_plugin.generated.WalletRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.WalletResultMessage
 
 /**
  * Boundary between the Pigeon bridge and the Mastercard Gateway Android SDK.
@@ -38,4 +42,17 @@ interface GatewaySdkAdapter {
         request: AuthenticateRequestMessage,
         callback: (Result<AuthenticationResultMessage>) -> Unit,
     )
+
+    /** Reports whether Google Pay can be used on this device. Presents no UI. */
+    fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit)
+
+    /** Shows the Google Pay sheet and stores the resulting token in the session. */
+    fun payWithDeviceWallet(request: WalletRequestMessage, callback: (Result<WalletResultMessage>) -> Unit)
+
+    /**
+     * Receives Activity results forwarded by the plugin.
+     *
+     * @return `true` if the result belonged to an operation started by this adapter.
+     */
+    fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean
 }

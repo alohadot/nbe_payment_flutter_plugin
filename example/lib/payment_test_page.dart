@@ -40,6 +40,15 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
 
   final _authenticationTransactionId = TextEditingController();
 
+  // Google Pay needs a Google merchant ID only outside the test environment; Apple Pay always
+  // needs a merchant identifier. Both are initialization settings.
+  final _googlePayMerchantId = TextEditingController();
+  final _applePayMerchantIdentifier = TextEditingController();
+  final _walletMerchantDisplayName = TextEditingController(
+    text: 'NBE Plugin Example',
+  );
+  final _walletCountryCode = TextEditingController(text: 'EG');
+
   final List<EventLogEntry> _events = [];
   String _lastResult = 'Idle';
   bool _isBusy = false;
@@ -61,6 +70,10 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
       _securityCode,
       _nameOnCard,
       _authenticationTransactionId,
+      _googlePayMerchantId,
+      _applePayMerchantIdentifier,
+      _walletMerchantDisplayName,
+      _walletCountryCode,
     ]) {
       controller.dispose();
     }
@@ -97,6 +110,12 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
           merchantName: _merchantName.text.trim(),
           merchantUrl: _merchantUrl.text.trim(),
           region: region,
+          wallet: WalletConfiguration(
+            googlePayMerchantId: _optional(_googlePayMerchantId.text),
+            applePayMerchantIdentifier: _optional(
+              _applePayMerchantIdentifier.text,
+            ),
+          ),
         ),
       );
       return 'Initialized';
@@ -154,6 +173,25 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
       if (result case AuthenticationProceed(:final threeDS2TransactionStatus?))
         '3DS2 status: $threeDS2TransactionStatus',
     ].join('\n');
+  });
+
+  WalletPaymentRequest get _walletRequest => WalletPaymentRequest(
+    merchantDisplayName: _walletMerchantDisplayName.text.trim(),
+    countryCode: _walletCountryCode.text.trim(),
+  );
+
+  Future<void> _checkWallet() => _run('Check available wallet', () async {
+    final wallet = await _gateway.getAvailableWallet(_walletRequest);
+    return 'Available wallet: ${wallet.name}';
+  });
+
+  Future<void> _payWithWallet() => _run('Pay with device wallet', () async {
+    final result = await _gateway.payWithDeviceWallet(_session, _walletRequest);
+    return switch (result) {
+      WalletPaymentCompleted(:final wallet, :final cardDescription) =>
+        'Session updated with ${wallet.name} (${cardDescription ?? 'no card description'})',
+      WalletPaymentCancelled(:final wallet) => '${wallet.name} sheet cancelled',
+    };
   });
 
   Future<void> _run(String name, Future<String> Function() operation) async {
@@ -246,6 +284,14 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
                 'Merchant URL (used by Android only)',
                 keyboardType: TextInputType.url,
               ),
+              _field(
+                _googlePayMerchantId,
+                'Google Pay merchant ID (optional in test)',
+              ),
+              _field(
+                _applePayMerchantIdentifier,
+                'Apple Pay merchant identifier (iOS only)',
+              ),
               FilledButton(
                 onPressed: _initialize,
                 child: const Text('Initialize'),
@@ -316,6 +362,30 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
               FilledButton(
                 onPressed: _authenticatePayer,
                 child: const Text('Authenticate payer'),
+              ),
+            ],
+          ),
+          _Section(
+            title: 'Device wallet (Google Pay / Apple Pay)',
+            children: [
+              _field(
+                _walletMerchantDisplayName,
+                'Name shown on the wallet sheet',
+              ),
+              _field(_walletCountryCode, 'Merchant country code'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: _checkWallet,
+                    child: const Text('Check available wallet'),
+                  ),
+                  FilledButton(
+                    onPressed: _payWithWallet,
+                    child: const Text('Pay with device wallet'),
+                  ),
+                ],
               ),
             ],
           ),

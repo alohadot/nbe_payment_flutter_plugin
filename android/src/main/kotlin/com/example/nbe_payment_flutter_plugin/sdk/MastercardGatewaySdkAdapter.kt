@@ -3,12 +3,16 @@ package com.example.nbe_payment_flutter_plugin.sdk
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import com.example.nbe_payment_flutter_plugin.bridge.gatewayBridgeError
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
+import com.example.nbe_payment_flutter_plugin.generated.DeviceWallet
+import com.example.nbe_payment_flutter_plugin.generated.WalletRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.WalletResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.GatewayFieldMessage
 import com.example.nbe_payment_flutter_plugin.generated.InitializeRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.SessionMessage
@@ -41,6 +45,8 @@ class MastercardGatewaySdkAdapter(
 ) : GatewaySdkAdapter {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val googlePay = GooglePayController(context, activityProvider)
 
     override fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit) {
         // The SDK keeps process-wide state that outlives a Flutter hot restart or a second
@@ -240,6 +246,34 @@ class MastercardGatewaySdkAdapter(
             authenticationCallback,
         )
     }
+
+    override fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit) {
+        googlePay.getAvailableWallet(request, callback)
+    }
+
+    override fun payWithDeviceWallet(
+        request: WalletRequestMessage,
+        callback: (Result<WalletResultMessage>) -> Unit,
+    ) {
+        // The gateway merchant ID must be the one the SDK was initialized with, because the
+        // token is stored in a session of that merchant.
+        val gatewayMerchantId = lastSuccessfulInitializeRequest?.merchantId
+        if (!GatewaySDK.initialized || gatewayMerchantId == null) {
+            callback(
+                Result.failure(
+                    gatewayBridgeError(
+                        code = errorCodeNotInitialized,
+                        message = "The Gateway SDK is not initialized.",
+                    ),
+                ),
+            )
+            return
+        }
+        googlePay.pay(request, gatewayMerchantId, callback)
+    }
+
+    override fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean =
+        googlePay.handleActivityResult(requestCode, resultCode, data)
 
     private fun runOnMainThread(action: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) action() else mainHandler.post(action)

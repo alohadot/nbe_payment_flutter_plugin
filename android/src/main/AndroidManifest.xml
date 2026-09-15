@@ -4,4 +4,11 @@
     <!-- The Gateway SDK manifests do not declare it, and Flutter templates only add it to
          debug/profile builds, so release apps would fail to reach the gateway without it. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- Required by the Google Pay API (play-services-wallet). -->
+        <meta-data
+            android:name="com.google.android.gms.wallet.api.enabled"
+            android:value="true" />
+    </application>
 </manifest>
