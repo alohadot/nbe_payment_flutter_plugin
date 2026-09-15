@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:nbe_payment_flutter_plugin/nbe_payment_flutter_plugin.dart';
 
-// Placeholder until the full demo app is built. It only uses the public plugin API.
+import 'payment_test_page.dart';
+
 void main() {
   runApp(const ExampleApp());
 }
@@ -11,20 +11,10 @@ class ExampleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gateway = NbePaymentGateway();
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: const Text('NBE Payment Plugin')),
-        body: Center(
-          child: Text(
-            'Plugin ${NbePaymentVersions.plugin}\n'
-            'Android SDK ${NbePaymentVersions.androidGatewaySdk}\n'
-            'iOS SDK ${NbePaymentVersions.iosGatewaySdk}\n'
-            'Initialized: ${gateway.isInitialized}',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
+      title: 'NBE Payment Plugin',
+      theme: ThemeData(colorSchemeSeed: const Color(0xFF006A4E)),
+      home: const PaymentTestPage(),
     );
   }
 }

@@ -1,0 +1,455 @@
+{
+  "info": {
+    "name": "NBE Plugin - MTF Payment Flow",
+    "description": "Merchant-server side of a payment made with the nbe_payment_flutter_plugin example app, against the Mastercard Gateway test environment (MTF).\n\nSETUP\n1. Create a Postman environment with `merchantId` and `apiPassword` (type: secret). Never save the API password in this collection or commit it.\n2. `baseUrl` must be the host of the region selected in the app. The SDK region MTF uses https://mtf.gateway.mastercard.com. A session created on another host is rejected by the app with 401.\n3. `apiVersion` must be the same in Postman and in the app (minimum 61).\n\nFLOW A - Authorize then Capture\n1 Create Session → 2 Update Session → app: Initialize + Update session with card (+ Authenticate payer when available, then paste its transaction id into `authenticationTransactionId`) → 3 Retrieve Session → 4 Authorize → 5 Capture → 7 Retrieve Order → 9 Refund (optional).\nTo cancel instead of capturing: 4 Authorize → 8 Void.\n\nFLOW B - Pay in one step\nStart with a new session (run 1 and 2 again) → app: Update session with card → 6 Pay → 7 Retrieve Order → 9 Refund (optional).\n\n3-D SECURE\nLeave `authenticationTransactionId` empty until payer authentication is implemented in the app. The field is then omitted; the gateway may decline or proceed depending on the merchant's 3DS configuration.\n\nAll requests follow the Gateway API reference (version 100): Session: Create/Update/Retrieve Session, Transaction: Authorize, Capture, Pay, Void, Refund, Retrieve Order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "merchant.{{merchantId}}", "type": "string" },
+      { "key": "password", "value": "{{apiPassword}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://mtf.gateway.mastercard.com" },
+    { "key": "apiVersion", "value": "100" },
+    { "key": "amount", "value": "150.00" },
+    { "key": "currency", "value": "EGP" },
+    { "key": "sessionId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "authenticationTransactionId", "value": "" },
+    { "key": "authorizeTransactionId", "value": "" },
+    { "key": "fundsTransactionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Session created', () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "  pm.expect(body.session.id).to.be.a('string');",
+              "});",
+              "",
+              "if (body.session && body.session.id) {",
+              "  pm.collectionVariables.set('sessionId', body.session.id);",
+              "  // A new session starts a new payment: clear ids from the previous run.",
+              "  ['orderId', 'authenticationTransactionId', 'authorizeTransactionId', 'fundsTransactionId']",
+              "    .forEach((key) => pm.collectionVariables.set(key, ''));",
+              "  console.log('Session ID:', body.session.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {\n    \"authenticationLimit\": 25\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/session",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "session"]
+        }
+      }
+    },
+    {
+      "name": "2. Update Session (order + 3DS settings)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// A new order ID on every run: an order cannot be paid twice.",
+              "pm.collectionVariables.set('orderId', 'ORDER-' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Session updated', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(body.session.updateStatus).to.eql('SUCCESS');",
+              "});",
+              "",
+              "const valuesForApp = {",
+              "  'Session ID': pm.collectionVariables.get('sessionId'),",
+              "  'Order ID': pm.collectionVariables.get('orderId'),",
+              "  'Amount': pm.collectionVariables.get('amount'),",
+              "  'Currency': pm.collectionVariables.get('currency'),",
+              "  'API version': pm.collectionVariables.get('apiVersion'),",
+              "};",
+              "console.log('Copy into the example app:', JSON.stringify(valuesForApp, null, 2));",
+              "",
+              "pm.visualizer.set(",
+              "  '<h3>Copy into the example app</h3><table>{{#each values}}<tr><td><b>{{@key}}</b></td><td><code>{{this}}</code></td></tr>{{/each}}</table>',",
+              "  { values: valuesForApp }",
+              ");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order\": {\n    \"id\": \"{{orderId}}\",\n    \"amount\": \"{{amount}}\",\n    \"currency\": \"{{currency}}\"\n  },\n  \"authentication\": {\n    \"acceptVersions\": \"3DS2\",\n    \"channel\": \"PAYER_APP\",\n    \"purpose\": \"PAYMENT_TRANSACTION\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/session/{{sessionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "session", "{{sessionId}}"]
+        }
+      }
+    },
+    {
+      "name": "3. Retrieve Session (verify card stored by the app)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "const card = body.sourceOfFunds && body.sourceOfFunds.provided && body.sourceOfFunds.provided.card;",
+              "",
+              "pm.test('Session contains a card', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(card, 'no card in session yet - run \"Update session with card\" in the app first').to.exist;",
+              "});",
+              "",
+              "// The gateway returns the card number masked; nothing sensitive is logged here.",
+              "if (card) {",
+              "  console.log('Card in session:', card.number, 'expiry', card.expiry && card.expiry.month + '/' + card.expiry.year);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/session/{{sessionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "session", "{{sessionId}}"]
+        }
+      }
+    },
+    {
+      "name": "4. Authorize",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const transactionId = 'TXN-AUTHORIZE-' + Date.now();",
+              "pm.collectionVariables.set('authorizeTransactionId', transactionId);",
+              "",
+              "const body = {",
+              "  apiOperation: 'AUTHORIZE',",
+              "  session: { id: pm.collectionVariables.get('sessionId') },",
+              "  order: {",
+              "    amount: pm.collectionVariables.get('amount'),",
+              "    currency: pm.collectionVariables.get('currency'),",
+              "  },",
+              "  sourceOfFunds: { type: 'CARD' },",
+              "};",
+              "",
+              "// Links the 3-D Secure result produced by the app. Omitted until the app provides it.",
+              "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
+              "if (authenticationTransactionId) {",
+              "  body.authentication = { transactionId: authenticationTransactionId };",
+              "}",
+              "",
+              "pm.variables.set('requestBody', JSON.stringify(body, null, 2));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Authorization approved', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "  pm.expect(body.order.status).to.eql('AUTHORIZED');",
+              "});",
+              "",
+              "console.log('Authorize:', JSON.stringify({",
+              "  result: body.result,",
+              "  gatewayCode: body.response && body.response.gatewayCode,",
+              "  orderStatus: body.order && body.order.status,",
+              "  transactionId: pm.collectionVariables.get('authorizeTransactionId'),",
+              "  threeDS2Status: body.authentication && body.authentication['3ds2'] && body.authentication['3ds2'].transactionStatus,",
+              "}, null, 2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{{requestBody}}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{authorizeTransactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{authorizeTransactionId}}"]
+        }
+      }
+    },
+    {
+      "name": "5. Capture (after Authorize)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('fundsTransactionId', 'TXN-CAPTURE-' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Capture succeeded', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "  pm.expect(body.order.status).to.eql('CAPTURED');",
+              "});",
+              "",
+              "console.log('Capture:', JSON.stringify({",
+              "  result: body.result,",
+              "  gatewayCode: body.response && body.response.gatewayCode,",
+              "  orderStatus: body.order && body.order.status,",
+              "  totalCapturedAmount: body.order && body.order.totalCapturedAmount,",
+              "}, null, 2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"apiOperation\": \"CAPTURE\",\n  \"transaction\": {\n    \"amount\": \"{{amount}}\",\n    \"currency\": \"{{currency}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{fundsTransactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{fundsTransactionId}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Pay (authorize + capture in one step)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const transactionId = 'TXN-PAY-' + Date.now();",
+              "pm.collectionVariables.set('fundsTransactionId', transactionId);",
+              "",
+              "const body = {",
+              "  apiOperation: 'PAY',",
+              "  session: { id: pm.collectionVariables.get('sessionId') },",
+              "  order: {",
+              "    amount: pm.collectionVariables.get('amount'),",
+              "    currency: pm.collectionVariables.get('currency'),",
+              "  },",
+              "  sourceOfFunds: { type: 'CARD' },",
+              "};",
+              "",
+              "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
+              "if (authenticationTransactionId) {",
+              "  body.authentication = { transactionId: authenticationTransactionId };",
+              "}",
+              "",
+              "pm.variables.set('requestBody', JSON.stringify(body, null, 2));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Payment captured', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "  pm.expect(body.order.status).to.eql('CAPTURED');",
+              "});",
+              "",
+              "console.log('Pay:', JSON.stringify({",
+              "  result: body.result,",
+              "  gatewayCode: body.response && body.response.gatewayCode,",
+              "  orderStatus: body.order && body.order.status,",
+              "  transactionId: pm.collectionVariables.get('fundsTransactionId'),",
+              "}, null, 2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{{requestBody}}" },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{fundsTransactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{fundsTransactionId}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Retrieve Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Order found', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "});",
+              "",
+              "const transactions = (body.transaction || []).map((t) => ({",
+              "  type: t.transaction && t.transaction.type,",
+              "  id: t.transaction && t.transaction.id,",
+              "  result: t.result,",
+              "  gatewayCode: t.response && t.response.gatewayCode,",
+              "}));",
+              "console.log('Order', body.id, 'status', body.status, JSON.stringify(transactions, null, 2));",
+              "",
+              "pm.visualizer.set(",
+              "  '<h3>Order {{id}} — {{status}}</h3><table><tr><th>Type</th><th>Transaction</th><th>Result</th><th>Gateway code</th></tr>{{#each transactions}}<tr><td>{{type}}</td><td>{{id}}</td><td>{{result}}</td><td>{{gatewayCode}}</td></tr>{{/each}}</table>',",
+              "  { id: body.id, status: body.status, transactions }",
+              ");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Void (cancel the authorization before capture)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('voidTransactionId', 'TXN-VOID-' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Authorization voided', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "});",
+              "console.log('Void:', body.result, body.order && body.order.status);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"apiOperation\": \"VOID\",\n  \"transaction\": {\n    \"targetTransactionId\": \"{{authorizeTransactionId}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{voidTransactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{voidTransactionId}}"]
+        }
+      }
+    },
+    {
+      "name": "9. Refund (after Capture or Pay)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('refundTransactionId', 'TXN-REFUND-' + Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Refund succeeded', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "});",
+              "console.log('Refund:', body.result, body.order && body.order.status, 'refunded', body.order && body.order.totalRefundedAmount);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"apiOperation\": \"REFUND\",\n  \"transaction\": {\n    \"amount\": \"{{amount}}\",\n    \"currency\": \"{{currency}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{refundTransactionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{refundTransactionId}}"]
+        }
+      }
+    }
+  ]
+}

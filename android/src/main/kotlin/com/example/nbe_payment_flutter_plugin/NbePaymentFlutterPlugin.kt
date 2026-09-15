@@ -1,38 +1,25 @@
 package com.example.nbe_payment_flutter_plugin
 
+import com.example.nbe_payment_flutter_plugin.bridge.GatewayHostApiImpl
+import com.example.nbe_payment_flutter_plugin.generated.NbeGatewayHostApi
+import com.example.nbe_payment_flutter_plugin.sdk.MastercardGatewaySdkAdapter
 import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import io.flutter.plugin.common.MethodChannel.Result
 
-/** NbePaymentFlutterPlugin */
-class NbePaymentFlutterPlugin :
-    FlutterPlugin,
-    MethodCallHandler {
-    // The MethodChannel that will the communication between Flutter and native Android
-    //
-    // This local reference serves to register the plugin with the Flutter Engine and unregister it
-    // when the Flutter Engine is detached from the Activity
-    private lateinit var channel: MethodChannel
+/**
+ * Android entry point of the plugin. Only wires the engine to the host API; all behavior
+ * lives in [GatewayHostApiImpl] and the SDK adapter.
+ *
+ * The class name and package are referenced from pubspec.yaml.
+ */
+class NbePaymentFlutterPlugin : FlutterPlugin {
 
-    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "nbe_payment_flutter_plugin")
-        channel.setMethodCallHandler(this)
-    }
-
-    override fun onMethodCall(
-        call: MethodCall,
-        result: Result
-    ) {
-        if (call.method == "getPlatformVersion") {
-            result.success("Android ${android.os.Build.VERSION.RELEASE}")
-        } else {
-            result.notImplemented()
-        }
+    override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        val hostApi = GatewayHostApiImpl(MastercardGatewaySdkAdapter(binding.applicationContext))
+        NbeGatewayHostApi.setUp(binding.binaryMessenger, hostApi)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        channel.setMethodCallHandler(null)
+        // Unregisters every channel handler so no call reaches a detached engine.
+        NbeGatewayHostApi.setUp(binding.binaryMessenger, null)
     }
 }
