@@ -38,6 +38,16 @@ internal fun buildUpdateSessionWithCardPayload(
     return payload
 }
 
+/**
+ * Builds a payload from free-form gateway fields, or `null` when there are none.
+ *
+ * @throws IllegalArgumentException if a field carries no value.
+ */
+internal fun buildGatewayFieldsPayload(fields: List<GatewayFieldMessage>?): GatewayMap? {
+    if (fields.isNullOrEmpty()) return null
+    return GatewayMap().apply { fields.forEach { field -> set(field.key, valueOf(field)) } }
+}
+
 private fun valueOf(field: GatewayFieldMessage): Any =
     field.stringValue
         ?: field.intValue

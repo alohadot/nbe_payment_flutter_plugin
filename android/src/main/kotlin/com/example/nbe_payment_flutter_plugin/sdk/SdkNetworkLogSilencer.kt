@@ -30,7 +30,6 @@ internal object SdkNetworkLogSilencer {
     private val okHttpClientLogger: Logger = Logger.getLogger(OKHTTP_CLIENT_LOGGER)
 
     fun silence() {
-        // CONTROL-RUN: temporarily disabled to reproduce the leak.
-        // okHttpClientLogger.level = Level.OFF
+        okHttpClientLogger.level = Level.OFF
     }
 }

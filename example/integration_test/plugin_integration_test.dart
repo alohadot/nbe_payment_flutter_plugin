@@ -115,4 +115,37 @@ void main() {
       ),
     );
   });
+
+  // Requires network access to the MTF gateway. The session does not exist, so the gateway
+  // rejects authentication before any challenge screen. This proves the Activity is available
+  // to the SDK and that the failure comes back typed instead of crashing. A real challenge
+  // (OTP) needs a real session and is covered by the manual test in the example app.
+  testWidgets(
+    'payer authentication reaches the gateway and maps its rejection',
+    (tester) async {
+      final gateway = NbePaymentGateway();
+      if (!gateway.isInitialized) {
+        await gateway.initialize(_configuration);
+      }
+
+      await expectLater(
+        gateway.authenticatePayer(
+          const PaymentSession(
+            id: 'SESSION0000000000000000000000000',
+            orderId: 'ORDER-INTEGRATION-TEST',
+            amount: '1.00',
+            currency: 'EGP',
+            apiVersion: '100',
+          ),
+        ),
+        throwsA(
+          isA<GatewayException>().having(
+            (e) => e.code,
+            'code',
+            isNot(GatewayErrorCode.uiUnavailable),
+          ),
+        ),
+      );
+    },
+  );
 }

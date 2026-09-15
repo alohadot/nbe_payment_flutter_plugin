@@ -47,7 +47,9 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
     override fun authenticatePayer(
         request: AuthenticateRequestMessage,
         callback: (Result<AuthenticationResultMessage>) -> Unit,
-    ) = callback(notImplementedYet("authenticatePayer"))
+    ) {
+        runExclusively(callback) { complete -> sdkAdapter.authenticatePayer(request, complete) }
+    }
 
     override fun getAvailableWallet(
         request: WalletRequestMessage,

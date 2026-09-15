@@ -1,5 +1,8 @@
 package com.example.nbe_payment_flutter_plugin.bridge
 
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticationOutcomeMessage
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
 import com.example.nbe_payment_flutter_plugin.generated.GatewayBridgeError
 import com.example.nbe_payment_flutter_plugin.generated.GatewayFieldMessage
@@ -55,6 +58,17 @@ internal class GatewayHostApiImplTest {
             calls += "updateSessionWithCard"
             errorToThrow?.let { throw it }
             pendingCallbacks += callback
+        }
+
+        val pendingAuthenticationCallbacks =
+            mutableListOf<(Result<AuthenticationResultMessage>) -> Unit>()
+
+        override fun authenticatePayer(
+            request: AuthenticateRequestMessage,
+            callback: (Result<AuthenticationResultMessage>) -> Unit,
+        ) {
+            calls += "authenticatePayer"
+            pendingAuthenticationCallbacks += callback
         }
     }
 
@@ -143,6 +157,28 @@ internal class GatewayHostApiImplTest {
 
         assertEquals(listOf("initialize"), adapter.calls)
         assertEquals(errorCodeOperationInProgress, results.single().bridgeError().code)
+    }
+
+    @Test
+    fun authenticationIsForwardedAndBlocksOtherOperationsUntilItCompletes() {
+        val authenticationResults = mutableListOf<Result<AuthenticationResultMessage>>()
+        val request = AuthenticateRequestMessage(session = session, authenticationTransactionId = "AUTH-1")
+
+        hostApi.authenticatePayer(request) { authenticationResults += it }
+        hostApi.updateSessionWithCard(session, card, null) { results += it }
+
+        assertEquals(listOf("authenticatePayer"), adapter.calls)
+        assertEquals(errorCodeOperationInProgress, results.single().bridgeError().code)
+
+        val message = AuthenticationResultMessage(
+            outcome = AuthenticationOutcomeMessage.PROCEED,
+            authenticationPerformed = true,
+            challengePerformed = true,
+            authenticationTransactionId = "AUTH-1",
+        )
+        adapter.pendingAuthenticationCallbacks.single()(Result.success(message))
+
+        assertEquals(message, authenticationResults.single().getOrNull())
     }
 
     @Test

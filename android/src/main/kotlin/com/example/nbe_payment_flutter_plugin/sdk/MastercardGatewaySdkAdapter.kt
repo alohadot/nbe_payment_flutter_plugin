@@ -1,8 +1,13 @@
 package com.example.nbe_payment_flutter_plugin.sdk
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.example.nbe_payment_flutter_plugin.bridge.gatewayBridgeError
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
 import com.example.nbe_payment_flutter_plugin.generated.GatewayFieldMessage
 import com.example.nbe_payment_flutter_plugin.generated.InitializeRequestMessage
@@ -11,6 +16,10 @@ import com.example.nbe_payment_flutter_plugin.generated.errorCodeAlreadyInitiali
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeInitializationFailed
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeInvalidArgument
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeNotInitialized
+import com.example.nbe_payment_flutter_plugin.generated.errorCodeUiUnavailable
+import com.mastercard.gateway.android.sdk.AuthenticationCallback
+import com.mastercard.gateway.android.sdk.AuthenticationHandler
+import com.mastercard.gateway.android.sdk.AuthenticationResponse
 import com.mastercard.gateway.android.sdk.GatewayAPI
 import com.mastercard.gateway.android.sdk.GatewayCallback
 import com.mastercard.gateway.android.sdk.GatewayMap
@@ -19,8 +28,19 @@ import com.mastercard.gateway.android.sdk.InitializationCallback
 import org.emvco.threeds.core.exceptions.InvalidInputException
 import org.emvco.threeds.core.ui.UiCustomization
 
-/** [GatewaySdkAdapter] backed by the Mastercard Gateway Android SDK. */
-class MastercardGatewaySdkAdapter(private val context: Context) : GatewaySdkAdapter {
+/**
+ * [GatewaySdkAdapter] backed by the Mastercard Gateway Android SDK.
+ *
+ * @param activityProvider returns the Activity currently attached to the Flutter engine, or
+ * `null`. It is asked at the moment an operation needs UI, so a destroyed Activity is never
+ * kept or reused.
+ */
+class MastercardGatewaySdkAdapter(
+    private val context: Context,
+    private val activityProvider: () -> Activity?,
+) : GatewaySdkAdapter {
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit) {
         // The SDK keeps process-wide state that outlives a Flutter hot restart or a second
@@ -153,6 +173,76 @@ class MastercardGatewaySdkAdapter(private val context: Context) : GatewaySdkAdap
                 }
             },
         )
+    }
+
+    override fun authenticatePayer(
+        request: AuthenticateRequestMessage,
+        callback: (Result<AuthenticationResultMessage>) -> Unit,
+    ) {
+        if (!GatewaySDK.initialized) {
+            callback(
+                Result.failure(
+                    gatewayBridgeError(
+                        code = errorCodeNotInitialized,
+                        message = "The Gateway SDK is not initialized.",
+                    ),
+                ),
+            )
+            return
+        }
+
+        // The challenge screen is started from this Activity. Without one (app in background,
+        // engine running headless) the SDK cannot show it, so fail clearly instead of crashing.
+        val activity = activityProvider()
+        if (activity == null || activity.isFinishing || activity.isDestroyed) {
+            callback(
+                Result.failure(
+                    gatewayBridgeError(
+                        code = errorCodeUiUnavailable,
+                        message = "No visible Android Activity is available to present 3-D Secure authentication.",
+                    ),
+                ),
+            )
+            return
+        }
+
+        val payload = try {
+            buildGatewayFieldsPayload(request.authenticatePayerFields)
+        } catch (error: IllegalArgumentException) {
+            callback(
+                Result.failure(
+                    gatewayBridgeError(
+                        code = errorCodeInvalidArgument,
+                        message = error.message ?: "Invalid gateway field.",
+                    ),
+                ),
+            )
+            return
+        }
+
+        val session = toSdkSession(request.session)
+        val transactionId = request.authenticationTransactionId
+        val authenticationCallback = object : AuthenticationCallback {
+            override fun onComplete(response: AuthenticationResponse) {
+                // The bridge answers Flutter from the main thread; do not rely on the SDK's
+                // choice of dispatcher for this callback.
+                runOnMainThread { callback(toAuthenticationResult(response, transactionId)) }
+            }
+        }
+
+        SdkNetworkLogSilencer.silence()
+        // An empty map is also the SDK's own default for this parameter.
+        AuthenticationHandler.authenticate(
+            activity,
+            session,
+            transactionId,
+            payload ?: GatewayMap(),
+            authenticationCallback,
+        )
+    }
+
+    private fun runOnMainThread(action: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) action() else mainHandler.post(action)
     }
 
     private companion object {

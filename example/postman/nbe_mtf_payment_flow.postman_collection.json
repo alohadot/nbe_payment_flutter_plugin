@@ -11,6 +11,7 @@
       { "key": "password", "value": "{{apiPassword}}", "type": "string" }
     ]
   },
+
   "variable": [
     { "key": "baseUrl", "value": "https://mtf.gateway.mastercard.com" },
     { "key": "apiVersion", "value": "100" },

@@ -1,5 +1,7 @@
 package com.example.nbe_payment_flutter_plugin.sdk
 
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticateRequestMessage
+import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.CardMessage
 import com.example.nbe_payment_flutter_plugin.generated.GatewayFieldMessage
 import com.example.nbe_payment_flutter_plugin.generated.InitializeRequestMessage
@@ -26,5 +28,14 @@ interface GatewaySdkAdapter {
         card: CardMessage,
         additionalFields: List<GatewayFieldMessage>?,
         callback: (Result<Unit>) -> Unit,
+    )
+
+    /**
+     * Runs 3-D Secure payer authentication. May present the issuer challenge screen over the
+     * current Activity.
+     */
+    fun authenticatePayer(
+        request: AuthenticateRequestMessage,
+        callback: (Result<AuthenticationResultMessage>) -> Unit,
     )
 }

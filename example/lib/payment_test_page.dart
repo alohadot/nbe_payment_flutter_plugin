@@ -38,6 +38,8 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
   final _securityCode = TextEditingController(text: '100');
   final _nameOnCard = TextEditingController(text: 'Test User');
 
+  final _authenticationTransactionId = TextEditingController();
+
   final List<EventLogEntry> _events = [];
   String _lastResult = 'Idle';
   bool _isBusy = false;
@@ -58,6 +60,7 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
       _expiryYear,
       _securityCode,
       _nameOnCard,
+      _authenticationTransactionId,
     ]) {
       controller.dispose();
     }
@@ -132,6 +135,26 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
         await _gateway.updateSessionWithCard(_session, _card);
         return 'Session updated with card';
       });
+
+  Future<void> _authenticatePayer() => _run('Authenticate payer', () async {
+    final result = await _gateway.authenticatePayer(
+      _session,
+      authenticationTransactionId: _optional(_authenticationTransactionId.text),
+    );
+    final outcome = switch (result) {
+      AuthenticationProceed() => 'PROCEED',
+      AuthenticationNotProceeded(:final reason) =>
+        'NOT PROCEEDED (${reason.name})',
+    };
+    return [
+      outcome,
+      'Authentication transaction ID: ${result.authenticationTransactionId}',
+      'Authentication performed: ${result.authenticationPerformed}',
+      'Challenge (OTP) shown: ${result.challengePerformed}',
+      if (result case AuthenticationProceed(:final threeDS2TransactionStatus?))
+        '3DS2 status: $threeDS2TransactionStatus',
+    ].join('\n');
+  });
 
   Future<void> _run(String name, Future<String> Function() operation) async {
     setState(() {
@@ -280,6 +303,19 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
               FilledButton(
                 onPressed: _updateSessionWithCard,
                 child: const Text('Update session with card'),
+              ),
+            ],
+          ),
+          _Section(
+            title: '3-D Secure',
+            children: [
+              _field(
+                _authenticationTransactionId,
+                'Authentication transaction ID (optional, generated if empty)',
+              ),
+              FilledButton(
+                onPressed: _authenticatePayer,
+                child: const Text('Authenticate payer'),
               ),
             ],
           ),
