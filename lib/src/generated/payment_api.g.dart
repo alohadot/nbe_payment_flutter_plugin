@@ -19,19 +19,21 @@ const String errorCodeMissingSessionParameter = 'missing_session_parameter';
 const String errorCodeNetwork = 'network';
 const String errorCodeGatewayRejected = 'gateway_rejected';
 const String errorCodeInvalidGatewayResponse = 'invalid_gateway_response';
-const String errorCodeInvalidChallengeCompletionUrl = 'invalid_challenge_completion_url';
+const String errorCodeInvalidChallengeCompletionUrl =
+    'invalid_challenge_completion_url';
 const String errorCodeUiUnavailable = 'ui_unavailable';
 const String errorCodeWalletUnavailable = 'wallet_unavailable';
-const String errorCodeWalletConfigurationInvalid = 'wallet_configuration_invalid';
+const String errorCodeWalletConfigurationInvalid =
+    'wallet_configuration_invalid';
 const String errorCodeWalletFailed = 'wallet_failed';
 const String errorCodeUnknown = 'unknown';
 const String errorDetailsHttpStatusCode = 'httpStatusCode';
 const String errorDetailsNative = 'nativeDetails';
 
 Object? _extractReplyValueOrThrow(
-    List<Object?>? replyList,
-    String channelName, {
-    required bool isNullValid,
+  List<Object?>? replyList,
+  String channelName, {
+  required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -65,8 +67,9 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(
+          ((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]),
+        );
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -115,7 +118,6 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 /// Gateway data center the merchant account lives in.
 ///
 /// Only regions available in both native SDKs are listed.
@@ -144,24 +146,17 @@ enum AuthenticationOutcomeMessage {
 enum DeviceWallet {
   /// Android.
   googlePay,
+
   /// iOS.
   applePay,
+
   /// No usable wallet on this device.
   none,
 }
 
-enum CardNetwork {
-  visa,
-  mastercard,
-  amex,
-  discover,
-  jcb,
-}
+enum CardNetwork { visa, mastercard, amex, discover, jcb }
 
-enum WalletOutcomeMessage {
-  completed,
-  cancelled,
-}
+enum WalletOutcomeMessage { completed, cancelled }
 
 /// Buttons of the challenge screen that the Android SDK can style individually.
 enum ChallengeButtonType {
@@ -174,16 +169,9 @@ enum ChallengeButtonType {
   addChoice,
 }
 
-enum ChallengeAppearance {
-  light,
-  dark,
-}
+enum ChallengeAppearance { light, dark }
 
-enum ChallengeKeyboardAppearance {
-  systemDefault,
-  light,
-  dark,
-}
+enum ChallengeKeyboardAppearance { systemDefault, light, dark }
 
 class InitializeRequestMessage {
   InitializeRequestMessage({
@@ -223,7 +211,8 @@ class InitializeRequestMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static InitializeRequestMessage decode(Object result) {
     result as List<Object?>;
@@ -240,13 +229,19 @@ class InitializeRequestMessage {
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! InitializeRequestMessage || other.runtimeType != runtimeType) {
+    if (other is! InitializeRequestMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(merchantId, other.merchantId) && _deepEquals(merchantName, other.merchantName) && _deepEquals(merchantUrl, other.merchantUrl) && _deepEquals(region, other.region) && _deepEquals(challengeLocale, other.challengeLocale) && _deepEquals(challengeUi, other.challengeUi);
+    return _deepEquals(merchantId, other.merchantId) &&
+        _deepEquals(merchantName, other.merchantName) &&
+        _deepEquals(merchantUrl, other.merchantUrl) &&
+        _deepEquals(region, other.region) &&
+        _deepEquals(challengeLocale, other.challengeLocale) &&
+        _deepEquals(challengeUi, other.challengeUi);
   }
 
   @override
@@ -280,17 +275,12 @@ class SessionMessage {
   String apiVersion;
 
   List<Object?> _toList() {
-    return <Object?>[
-      id,
-      orderId,
-      amount,
-      currency,
-      apiVersion,
-    ];
+    return <Object?>[id, orderId, amount, currency, apiVersion];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static SessionMessage decode(Object result) {
     result as List<Object?>;
@@ -312,7 +302,11 @@ class SessionMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(id, other.id) && _deepEquals(orderId, other.orderId) && _deepEquals(amount, other.amount) && _deepEquals(currency, other.currency) && _deepEquals(apiVersion, other.apiVersion);
+    return _deepEquals(id, other.id) &&
+        _deepEquals(orderId, other.orderId) &&
+        _deepEquals(amount, other.amount) &&
+        _deepEquals(currency, other.currency) &&
+        _deepEquals(apiVersion, other.apiVersion);
   }
 
   @override
@@ -347,17 +341,12 @@ class CardMessage {
   String? nameOnCard;
 
   List<Object?> _toList() {
-    return <Object?>[
-      number,
-      securityCode,
-      expiryMonth,
-      expiryYear,
-      nameOnCard,
-    ];
+    return <Object?>[number, securityCode, expiryMonth, expiryYear, nameOnCard];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static CardMessage decode(Object result) {
     result as List<Object?>;
@@ -379,7 +368,11 @@ class CardMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(number, other.number) && _deepEquals(securityCode, other.securityCode) && _deepEquals(expiryMonth, other.expiryMonth) && _deepEquals(expiryYear, other.expiryYear) && _deepEquals(nameOnCard, other.nameOnCard);
+    return _deepEquals(number, other.number) &&
+        _deepEquals(securityCode, other.securityCode) &&
+        _deepEquals(expiryMonth, other.expiryMonth) &&
+        _deepEquals(expiryYear, other.expiryYear) &&
+        _deepEquals(nameOnCard, other.nameOnCard);
   }
 
   @override
@@ -415,17 +408,12 @@ class GatewayFieldMessage {
   bool? boolValue;
 
   List<Object?> _toList() {
-    return <Object?>[
-      key,
-      stringValue,
-      intValue,
-      doubleValue,
-      boolValue,
-    ];
+    return <Object?>[key, stringValue, intValue, doubleValue, boolValue];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static GatewayFieldMessage decode(Object result) {
     result as List<Object?>;
@@ -447,7 +435,11 @@ class GatewayFieldMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(key, other.key) && _deepEquals(stringValue, other.stringValue) && _deepEquals(intValue, other.intValue) && _deepEquals(doubleValue, other.doubleValue) && _deepEquals(boolValue, other.boolValue);
+    return _deepEquals(key, other.key) &&
+        _deepEquals(stringValue, other.stringValue) &&
+        _deepEquals(intValue, other.intValue) &&
+        _deepEquals(doubleValue, other.doubleValue) &&
+        _deepEquals(boolValue, other.boolValue);
   }
 
   @override
@@ -488,14 +480,16 @@ class AuthenticateRequestMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AuthenticateRequestMessage decode(Object result) {
     result as List<Object?>;
     return AuthenticateRequestMessage(
       session: result[0]! as SessionMessage,
       authenticationTransactionId: result[1]! as String,
-      authenticatePayerFields: (result[2] as List<Object?>?)?.cast<GatewayFieldMessage>(),
+      authenticatePayerFields: (result[2] as List<Object?>?)
+          ?.cast<GatewayFieldMessage>(),
       ios: result[3] as IosAuthenticationOptionsMessage?,
     );
   }
@@ -503,13 +497,20 @@ class AuthenticateRequestMessage {
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! AuthenticateRequestMessage || other.runtimeType != runtimeType) {
+    if (other is! AuthenticateRequestMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(session, other.session) && _deepEquals(authenticationTransactionId, other.authenticationTransactionId) && _deepEquals(authenticatePayerFields, other.authenticatePayerFields) && _deepEquals(ios, other.ios);
+    return _deepEquals(session, other.session) &&
+        _deepEquals(
+          authenticationTransactionId,
+          other.authenticationTransactionId,
+        ) &&
+        _deepEquals(authenticatePayerFields, other.authenticatePayerFields) &&
+        _deepEquals(ios, other.ios);
   }
 
   @override
@@ -544,27 +545,35 @@ class IosAuthenticationOptionsMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static IosAuthenticationOptionsMessage decode(Object result) {
     result as List<Object?>;
     return IosAuthenticationOptionsMessage(
       challengeUi: result[0] as ChallengeUiMessage?,
       challengeLocale: result[1] as String?,
-      initiateAuthenticationFields: (result[2] as List<Object?>?)?.cast<GatewayFieldMessage>(),
+      initiateAuthenticationFields: (result[2] as List<Object?>?)
+          ?.cast<GatewayFieldMessage>(),
     );
   }
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! IosAuthenticationOptionsMessage || other.runtimeType != runtimeType) {
+    if (other is! IosAuthenticationOptionsMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(challengeUi, other.challengeUi) && _deepEquals(challengeLocale, other.challengeLocale) && _deepEquals(initiateAuthenticationFields, other.initiateAuthenticationFields);
+    return _deepEquals(challengeUi, other.challengeUi) &&
+        _deepEquals(challengeLocale, other.challengeLocale) &&
+        _deepEquals(
+          initiateAuthenticationFields,
+          other.initiateAuthenticationFields,
+        );
   }
 
   @override
@@ -613,7 +622,8 @@ class AuthenticationResultMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AuthenticationResultMessage decode(Object result) {
     result as List<Object?>;
@@ -630,13 +640,22 @@ class AuthenticationResultMessage {
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! AuthenticationResultMessage || other.runtimeType != runtimeType) {
+    if (other is! AuthenticationResultMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(outcome, other.outcome) && _deepEquals(authenticationPerformed, other.authenticationPerformed) && _deepEquals(challengePerformed, other.challengePerformed) && _deepEquals(authenticationTransactionId, other.authenticationTransactionId) && _deepEquals(sdkTransactionId, other.sdkTransactionId) && _deepEquals(threeDS2TransactionStatus, other.threeDS2TransactionStatus);
+    return _deepEquals(outcome, other.outcome) &&
+        _deepEquals(authenticationPerformed, other.authenticationPerformed) &&
+        _deepEquals(challengePerformed, other.challengePerformed) &&
+        _deepEquals(
+          authenticationTransactionId,
+          other.authenticationTransactionId,
+        ) &&
+        _deepEquals(sdkTransactionId, other.sdkTransactionId) &&
+        _deepEquals(threeDS2TransactionStatus, other.threeDS2TransactionStatus);
   }
 
   @override
@@ -692,7 +711,8 @@ class WalletRequestMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static WalletRequestMessage decode(Object result) {
     result as List<Object?>;
@@ -716,7 +736,16 @@ class WalletRequestMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(session, other.session) && _deepEquals(merchantDisplayName, other.merchantDisplayName) && _deepEquals(countryCode, other.countryCode) && _deepEquals(supportedNetworks, other.supportedNetworks) && _deepEquals(isTestEnvironment, other.isTestEnvironment) && _deepEquals(googlePayMerchantId, other.googlePayMerchantId) && _deepEquals(applePayMerchantIdentifier, other.applePayMerchantIdentifier);
+    return _deepEquals(session, other.session) &&
+        _deepEquals(merchantDisplayName, other.merchantDisplayName) &&
+        _deepEquals(countryCode, other.countryCode) &&
+        _deepEquals(supportedNetworks, other.supportedNetworks) &&
+        _deepEquals(isTestEnvironment, other.isTestEnvironment) &&
+        _deepEquals(googlePayMerchantId, other.googlePayMerchantId) &&
+        _deepEquals(
+          applePayMerchantIdentifier,
+          other.applePayMerchantIdentifier,
+        );
   }
 
   @override
@@ -744,15 +773,12 @@ class WalletResultMessage {
   String? cardDescription;
 
   List<Object?> _toList() {
-    return <Object?>[
-      outcome,
-      wallet,
-      cardDescription,
-    ];
+    return <Object?>[outcome, wallet, cardDescription];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static WalletResultMessage decode(Object result) {
     result as List<Object?>;
@@ -772,7 +798,9 @@ class WalletResultMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(outcome, other.outcome) && _deepEquals(wallet, other.wallet) && _deepEquals(cardDescription, other.cardDescription);
+    return _deepEquals(outcome, other.outcome) &&
+        _deepEquals(wallet, other.wallet) &&
+        _deepEquals(cardDescription, other.cardDescription);
   }
 
   @override
@@ -831,7 +859,8 @@ class ChallengeUiMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ChallengeUiMessage decode(Object result) {
     result as List<Object?>;
@@ -842,7 +871,8 @@ class ChallengeUiMessage {
       textBox: result[3] as TextBoxStyleMessage?,
       regularFontName: result[4] as String?,
       headingFontName: result[5] as String?,
-      androidButtonStyles: (result[6] as List<Object?>?)?.cast<AndroidButtonStyleMessage>(),
+      androidButtonStyles: (result[6] as List<Object?>?)
+          ?.cast<AndroidButtonStyleMessage>(),
       ios: result[7] as IosChallengeUiMessage?,
     );
   }
@@ -856,7 +886,14 @@ class ChallengeUiMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(toolbar, other.toolbar) && _deepEquals(button, other.button) && _deepEquals(label, other.label) && _deepEquals(textBox, other.textBox) && _deepEquals(regularFontName, other.regularFontName) && _deepEquals(headingFontName, other.headingFontName) && _deepEquals(androidButtonStyles, other.androidButtonStyles) && _deepEquals(ios, other.ios);
+    return _deepEquals(toolbar, other.toolbar) &&
+        _deepEquals(button, other.button) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(textBox, other.textBox) &&
+        _deepEquals(regularFontName, other.regularFontName) &&
+        _deepEquals(headingFontName, other.headingFontName) &&
+        _deepEquals(androidButtonStyles, other.androidButtonStyles) &&
+        _deepEquals(ios, other.ios);
   }
 
   @override
@@ -889,17 +926,12 @@ class ToolbarStyleMessage {
   String? cancelText;
 
   List<Object?> _toList() {
-    return <Object?>[
-      backgroundColor,
-      textColor,
-      fontSize,
-      title,
-      cancelText,
-    ];
+    return <Object?>[backgroundColor, textColor, fontSize, title, cancelText];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ToolbarStyleMessage decode(Object result) {
     result as List<Object?>;
@@ -921,7 +953,11 @@ class ToolbarStyleMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(backgroundColor, other.backgroundColor) && _deepEquals(textColor, other.textColor) && _deepEquals(fontSize, other.fontSize) && _deepEquals(title, other.title) && _deepEquals(cancelText, other.cancelText);
+    return _deepEquals(backgroundColor, other.backgroundColor) &&
+        _deepEquals(textColor, other.textColor) &&
+        _deepEquals(fontSize, other.fontSize) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(cancelText, other.cancelText);
   }
 
   @override
@@ -951,16 +987,12 @@ class ButtonStyleMessage {
   double? cornerRadius;
 
   List<Object?> _toList() {
-    return <Object?>[
-      backgroundColor,
-      textColor,
-      fontSize,
-      cornerRadius,
-    ];
+    return <Object?>[backgroundColor, textColor, fontSize, cornerRadius];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ButtonStyleMessage decode(Object result) {
     result as List<Object?>;
@@ -981,7 +1013,10 @@ class ButtonStyleMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(backgroundColor, other.backgroundColor) && _deepEquals(textColor, other.textColor) && _deepEquals(fontSize, other.fontSize) && _deepEquals(cornerRadius, other.cornerRadius);
+    return _deepEquals(backgroundColor, other.backgroundColor) &&
+        _deepEquals(textColor, other.textColor) &&
+        _deepEquals(fontSize, other.fontSize) &&
+        _deepEquals(cornerRadius, other.cornerRadius);
   }
 
   @override
@@ -1011,16 +1046,12 @@ class LabelStyleMessage {
   double? headingFontSize;
 
   List<Object?> _toList() {
-    return <Object?>[
-      textColor,
-      fontSize,
-      headingTextColor,
-      headingFontSize,
-    ];
+    return <Object?>[textColor, fontSize, headingTextColor, headingFontSize];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static LabelStyleMessage decode(Object result) {
     result as List<Object?>;
@@ -1041,7 +1072,10 @@ class LabelStyleMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(textColor, other.textColor) && _deepEquals(fontSize, other.fontSize) && _deepEquals(headingTextColor, other.headingTextColor) && _deepEquals(headingFontSize, other.headingFontSize);
+    return _deepEquals(textColor, other.textColor) &&
+        _deepEquals(fontSize, other.fontSize) &&
+        _deepEquals(headingTextColor, other.headingTextColor) &&
+        _deepEquals(headingFontSize, other.headingFontSize);
   }
 
   @override
@@ -1084,7 +1118,8 @@ class TextBoxStyleMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static TextBoxStyleMessage decode(Object result) {
     result as List<Object?>;
@@ -1106,7 +1141,11 @@ class TextBoxStyleMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(textColor, other.textColor) && _deepEquals(fontSize, other.fontSize) && _deepEquals(borderColor, other.borderColor) && _deepEquals(borderWidth, other.borderWidth) && _deepEquals(cornerRadius, other.cornerRadius);
+    return _deepEquals(textColor, other.textColor) &&
+        _deepEquals(fontSize, other.fontSize) &&
+        _deepEquals(borderColor, other.borderColor) &&
+        _deepEquals(borderWidth, other.borderWidth) &&
+        _deepEquals(cornerRadius, other.cornerRadius);
   }
 
   @override
@@ -1120,24 +1159,19 @@ class TextBoxStyleMessage {
 }
 
 class AndroidButtonStyleMessage {
-  AndroidButtonStyleMessage({
-    required this.type,
-    required this.style,
-  });
+  AndroidButtonStyleMessage({required this.type, required this.style});
 
   ChallengeButtonType type;
 
   ButtonStyleMessage style;
 
   List<Object?> _toList() {
-    return <Object?>[
-      type,
-      style,
-    ];
+    return <Object?>[type, style];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AndroidButtonStyleMessage decode(Object result) {
     result as List<Object?>;
@@ -1150,7 +1184,8 @@ class AndroidButtonStyleMessage {
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! AndroidButtonStyleMessage || other.runtimeType != runtimeType) {
+    if (other is! AndroidButtonStyleMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
@@ -1211,7 +1246,8 @@ class IosChallengeUiMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static IosChallengeUiMessage decode(Object result) {
     result as List<Object?>;
@@ -1236,7 +1272,14 @@ class IosChallengeUiMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(primaryBackgroundColor, other.primaryBackgroundColor) && _deepEquals(secondaryBackgroundColor, other.secondaryBackgroundColor) && _deepEquals(labelBackgroundColor, other.labelBackgroundColor) && _deepEquals(tintColor, other.tintColor) && _deepEquals(navigationBarTintColor, other.navigationBarTintColor) && _deepEquals(cancelTextColor, other.cancelTextColor) && _deepEquals(keyboardAppearance, other.keyboardAppearance) && _deepEquals(appearance, other.appearance);
+    return _deepEquals(primaryBackgroundColor, other.primaryBackgroundColor) &&
+        _deepEquals(secondaryBackgroundColor, other.secondaryBackgroundColor) &&
+        _deepEquals(labelBackgroundColor, other.labelBackgroundColor) &&
+        _deepEquals(tintColor, other.tintColor) &&
+        _deepEquals(navigationBarTintColor, other.navigationBarTintColor) &&
+        _deepEquals(cancelTextColor, other.cancelTextColor) &&
+        _deepEquals(keyboardAppearance, other.keyboardAppearance) &&
+        _deepEquals(appearance, other.appearance);
   }
 
   @override
@@ -1249,7 +1292,6 @@ class IosChallengeUiMessage {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -1257,76 +1299,76 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is GatewayRegion) {
+    } else if (value is GatewayRegion) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    }    else if (value is AuthenticationOutcomeMessage) {
+    } else if (value is AuthenticationOutcomeMessage) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    }    else if (value is DeviceWallet) {
+    } else if (value is DeviceWallet) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is CardNetwork) {
+    } else if (value is CardNetwork) {
       buffer.putUint8(132);
       writeValue(buffer, value.index);
-    }    else if (value is WalletOutcomeMessage) {
+    } else if (value is WalletOutcomeMessage) {
       buffer.putUint8(133);
       writeValue(buffer, value.index);
-    }    else if (value is ChallengeButtonType) {
+    } else if (value is ChallengeButtonType) {
       buffer.putUint8(134);
       writeValue(buffer, value.index);
-    }    else if (value is ChallengeAppearance) {
+    } else if (value is ChallengeAppearance) {
       buffer.putUint8(135);
       writeValue(buffer, value.index);
-    }    else if (value is ChallengeKeyboardAppearance) {
+    } else if (value is ChallengeKeyboardAppearance) {
       buffer.putUint8(136);
       writeValue(buffer, value.index);
-    }    else if (value is InitializeRequestMessage) {
+    } else if (value is InitializeRequestMessage) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is SessionMessage) {
+    } else if (value is SessionMessage) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is CardMessage) {
+    } else if (value is CardMessage) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is GatewayFieldMessage) {
+    } else if (value is GatewayFieldMessage) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is AuthenticateRequestMessage) {
+    } else if (value is AuthenticateRequestMessage) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is IosAuthenticationOptionsMessage) {
+    } else if (value is IosAuthenticationOptionsMessage) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is AuthenticationResultMessage) {
+    } else if (value is AuthenticationResultMessage) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is WalletRequestMessage) {
+    } else if (value is WalletRequestMessage) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is WalletResultMessage) {
+    } else if (value is WalletResultMessage) {
       buffer.putUint8(145);
       writeValue(buffer, value.encode());
-    }    else if (value is ChallengeUiMessage) {
+    } else if (value is ChallengeUiMessage) {
       buffer.putUint8(146);
       writeValue(buffer, value.encode());
-    }    else if (value is ToolbarStyleMessage) {
+    } else if (value is ToolbarStyleMessage) {
       buffer.putUint8(147);
       writeValue(buffer, value.encode());
-    }    else if (value is ButtonStyleMessage) {
+    } else if (value is ButtonStyleMessage) {
       buffer.putUint8(148);
       writeValue(buffer, value.encode());
-    }    else if (value is LabelStyleMessage) {
+    } else if (value is LabelStyleMessage) {
       buffer.putUint8(149);
       writeValue(buffer, value.encode());
-    }    else if (value is TextBoxStyleMessage) {
+    } else if (value is TextBoxStyleMessage) {
       buffer.putUint8(150);
       writeValue(buffer, value.encode());
-    }    else if (value is AndroidButtonStyleMessage) {
+    } else if (value is AndroidButtonStyleMessage) {
       buffer.putUint8(151);
       writeValue(buffer, value.encode());
-    }    else if (value is IosChallengeUiMessage) {
+    } else if (value is IosChallengeUiMessage) {
       buffer.putUint8(152);
       writeValue(buffer, value.encode());
     } else {
@@ -1342,7 +1384,9 @@ class _PigeonCodec extends StandardMessageCodec {
         return value == null ? null : GatewayRegion.values[value];
       case 130:
         final value = readValue(buffer) as int?;
-        return value == null ? null : AuthenticationOutcomeMessage.values[value];
+        return value == null
+            ? null
+            : AuthenticationOutcomeMessage.values[value];
       case 131:
         final value = readValue(buffer) as int?;
         return value == null ? null : DeviceWallet.values[value];
@@ -1403,9 +1447,13 @@ class NbeGatewayHostApi {
   /// Constructor for [NbeGatewayHostApi]. The [binaryMessenger] named argument is
   /// available for dependency injection. If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  NbeGatewayHostApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  NbeGatewayHostApi({
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+           ? '.$messageChannelSuffix'
+           : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -1413,95 +1461,113 @@ class NbeGatewayHostApi {
   final String pigeonVar_messageChannelSuffix;
 
   Future<void> initialize(InitializeRequestMessage request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.initialize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.initialize$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
-  Future<void> updateSessionWithCard(SessionMessage session, CardMessage card, List<GatewayFieldMessage>? additionalFields) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.updateSessionWithCard$pigeonVar_messageChannelSuffix';
+  Future<void> updateSessionWithCard(
+    SessionMessage session,
+    CardMessage card,
+    List<GatewayFieldMessage>? additionalFields,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.updateSessionWithCard$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[session, card, additionalFields]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[session, card, additionalFields],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
-  Future<AuthenticationResultMessage> authenticatePayer(AuthenticateRequestMessage request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.authenticatePayer$pigeonVar_messageChannelSuffix';
+  Future<AuthenticationResultMessage> authenticatePayer(
+    AuthenticateRequestMessage request,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.authenticatePayer$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as AuthenticationResultMessage;
   }
 
   Future<DeviceWallet> getAvailableWallet(WalletRequestMessage request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.getAvailableWallet$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.getAvailableWallet$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as DeviceWallet;
   }
 
-  Future<WalletResultMessage> payWithDeviceWallet(WalletRequestMessage request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.payWithDeviceWallet$pigeonVar_messageChannelSuffix';
+  Future<WalletResultMessage> payWithDeviceWallet(
+    WalletRequestMessage request,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.payWithDeviceWallet$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as WalletResultMessage;
   }
 }

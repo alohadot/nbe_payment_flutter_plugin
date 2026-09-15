@@ -1,24 +1,17 @@
-// This is a basic Flutter integration test.
+// Runs inside the example app on a device or emulator.
 //
-// Since integration tests run in a full Flutter application, they can interact
-// with the host side of a plugin implementation, unlike Dart unit tests.
-//
-// For more information about Flutter integration tests, please see
-// https://flutter.dev/to/integration-testing
+// Real native tests (initialization against the MTF test environment, card update,
+// 3DS authentication) are added once the native implementations exist. This file does not
+// fake any of them.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-
 import 'package:nbe_payment_flutter_plugin/nbe_payment_flutter_plugin.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final NbePaymentFlutterPlugin plugin = NbePaymentFlutterPlugin();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+  testWidgets('the gateway starts uninitialized', (tester) async {
+    expect(NbePaymentGateway().isInitialized, isFalse);
   });
 }

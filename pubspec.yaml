@@ -1,5 +1,5 @@
 name: nbe_payment_flutter_plugin
-description: "A new Flutter plugin project."
+description: "Flutter plugin for the NBE payment gateway (Mastercard Gateway SDK) on Android and iOS."
 version: 0.0.1
 homepage:
 
@@ -10,7 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
   flutter_test:

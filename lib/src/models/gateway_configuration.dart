@@ -39,6 +39,30 @@ class GatewayConfiguration {
 
   /// Whether this configuration points to the test environment.
   bool get isTestEnvironment => region == GatewayRegion.mtf;
+
+  // Value equality lets `initialize` treat a repeated call with the same configuration
+  // as a no-op instead of an error.
+  @override
+  bool operator ==(Object other) =>
+      other is GatewayConfiguration &&
+      other.merchantId == merchantId &&
+      other.merchantName == merchantName &&
+      other.merchantUrl == merchantUrl &&
+      other.region == region &&
+      other.challengeLocale == challengeLocale &&
+      other.challengeUi == challengeUi &&
+      other.wallet == wallet;
+
+  @override
+  int get hashCode => Object.hash(
+    merchantId,
+    merchantName,
+    merchantUrl,
+    region,
+    challengeLocale,
+    challengeUi,
+    wallet,
+  );
 }
 
 @immutable
@@ -54,4 +78,14 @@ class WalletConfiguration {
 
   /// Apple Pay merchant identifier, e.g. `merchant.com.example.store`. iOS only.
   final String? applePayMerchantIdentifier;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WalletConfiguration &&
+      other.googlePayMerchantId == googlePayMerchantId &&
+      other.applePayMerchantIdentifier == applePayMerchantIdentifier;
+
+  @override
+  int get hashCode =>
+      Object.hash(googlePayMerchantId, applePayMerchantIdentifier);
 }
