@@ -7,8 +7,13 @@
 // Never edit the generated files by hand.
 //
 // Rules for this file:
-// - Types here are transport messages, not the public API. Every name ends with `Message`
-//   and is mapped to/from public models in lib/src/mappers/.
+// - Classes are transport messages, not the public API. Their names end with `Message` and
+//   they are mapped to/from public models in lib/src/mappers/. They stay private because
+//   generated classes are mutable and their generated toString prints every field
+//   (including card data).
+// - Enums that are plain value lists carry no such risk, so they are defined only here and
+//   exported directly as public API. They have no `Message` suffix, and changing them is a
+//   public API change.
 // - Business outcomes (user cancelled, issuer declined) travel inside result messages.
 //   Only technical failures are sent as channel errors, using the error codes below.
 import 'package:pigeon/pigeon.dart';
@@ -63,7 +68,11 @@ const String errorDetailsNative = 'nativeDetails';
 // Initialization
 // ---------------------------------------------------------------------------
 
-enum RegionMessage {
+/// Gateway data center the merchant account lives in.
+///
+/// Only regions available in both native SDKs are listed.
+enum GatewayRegion {
+  /// Mastercard test environment (MTF). No real money moves.
   mtf,
   europe,
   northAmerica,
@@ -89,7 +98,7 @@ class InitializeRequestMessage {
   /// Used by the Android SDK only.
   String merchantUrl;
 
-  RegionMessage region;
+  GatewayRegion region;
 
   /// BCP-47 language tag for the 3DS challenge screen. Used by the iOS SDK only;
   /// the Android SDK always follows the device language.
@@ -211,9 +220,19 @@ class AuthenticationResultMessage {
 // Device wallet (Google Pay on Android, Apple Pay on iOS)
 // ---------------------------------------------------------------------------
 
-enum DeviceWalletMessage { googlePay, applePay, none }
+/// Device wallet available for payments.
+enum DeviceWallet {
+  /// Android.
+  googlePay,
 
-enum CardNetworkMessage { visa, mastercard, amex, discover, jcb }
+  /// iOS.
+  applePay,
+
+  /// No usable wallet on this device.
+  none,
+}
+
+enum CardNetwork { visa, mastercard, amex, discover, jcb }
 
 class WalletRequestMessage {
   WalletRequestMessage({
@@ -231,7 +250,7 @@ class WalletRequestMessage {
   /// ISO 3166-1 alpha-2, e.g. "EG".
   String countryCode;
 
-  List<CardNetworkMessage> supportedNetworks;
+  List<CardNetwork> supportedNetworks;
 
   /// Selects the Google Pay TEST environment on Android.
   bool isTestEnvironment;
@@ -249,7 +268,7 @@ class WalletResultMessage {
   WalletResultMessage({required this.outcome, required this.wallet});
 
   WalletOutcomeMessage outcome;
-  DeviceWalletMessage wallet;
+  DeviceWallet wallet;
 
   /// Display-only description such as "Visa ••••1234". Never the wallet token.
   String? cardDescription;
@@ -308,7 +327,8 @@ class TextBoxStyleMessage {
   double? cornerRadius;
 }
 
-enum ChallengeButtonTypeMessage {
+/// Buttons of the challenge screen that the Android SDK can style individually.
+enum ChallengeButtonType {
   submit,
   continueButton,
   next,
@@ -321,13 +341,13 @@ enum ChallengeButtonTypeMessage {
 class AndroidButtonStyleMessage {
   AndroidButtonStyleMessage({required this.type, required this.style});
 
-  ChallengeButtonTypeMessage type;
+  ChallengeButtonType type;
   ButtonStyleMessage style;
 }
 
-enum ChallengeAppearanceMessage { light, dark }
+enum ChallengeAppearance { light, dark }
 
-enum KeyboardAppearanceMessage { systemDefault, light, dark }
+enum ChallengeKeyboardAppearance { systemDefault, light, dark }
 
 class IosChallengeUiMessage {
   int? primaryBackgroundColor;
@@ -336,8 +356,8 @@ class IosChallengeUiMessage {
   int? tintColor;
   int? navigationBarTintColor;
   int? cancelTextColor;
-  KeyboardAppearanceMessage? keyboardAppearance;
-  ChallengeAppearanceMessage? appearance;
+  ChallengeKeyboardAppearance? keyboardAppearance;
+  ChallengeAppearance? appearance;
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +384,7 @@ abstract class NbeGatewayHostApi {
   );
 
   @async
-  DeviceWalletMessage getAvailableWallet(WalletRequestMessage request);
+  DeviceWallet getAvailableWallet(WalletRequestMessage request);
 
   @async
   WalletResultMessage payWithDeviceWallet(WalletRequestMessage request);

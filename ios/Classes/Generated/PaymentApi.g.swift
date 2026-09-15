@@ -203,7 +203,11 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 }
 
 
-enum RegionMessage: Int, CaseIterable {
+/// Gateway data center the merchant account lives in.
+///
+/// Only regions available in both native SDKs are listed.
+enum GatewayRegion: Int, CaseIterable {
+  /// Mastercard test environment (MTF). No real money moves.
   case mtf = 0
   case europe = 1
   case northAmerica = 2
@@ -223,13 +227,17 @@ enum AuthenticationOutcomeMessage: Int, CaseIterable {
   case unknownRecommendation = 6
 }
 
-enum DeviceWalletMessage: Int, CaseIterable {
+/// Device wallet available for payments.
+enum DeviceWallet: Int, CaseIterable {
+  /// Android.
   case googlePay = 0
+  /// iOS.
   case applePay = 1
+  /// No usable wallet on this device.
   case none = 2
 }
 
-enum CardNetworkMessage: Int, CaseIterable {
+enum CardNetwork: Int, CaseIterable {
   case visa = 0
   case mastercard = 1
   case amex = 2
@@ -242,7 +250,8 @@ enum WalletOutcomeMessage: Int, CaseIterable {
   case cancelled = 1
 }
 
-enum ChallengeButtonTypeMessage: Int, CaseIterable {
+/// Buttons of the challenge screen that the Android SDK can style individually.
+enum ChallengeButtonType: Int, CaseIterable {
   case submit = 0
   case continueButton = 1
   case next = 2
@@ -252,12 +261,12 @@ enum ChallengeButtonTypeMessage: Int, CaseIterable {
   case addChoice = 6
 }
 
-enum ChallengeAppearanceMessage: Int, CaseIterable {
+enum ChallengeAppearance: Int, CaseIterable {
   case light = 0
   case dark = 1
 }
 
-enum KeyboardAppearanceMessage: Int, CaseIterable {
+enum ChallengeKeyboardAppearance: Int, CaseIterable {
   case systemDefault = 0
   case light = 1
   case dark = 2
@@ -270,7 +279,7 @@ struct InitializeRequestMessage: Hashable, CustomStringConvertible {
   var merchantName: String
   /// Used by the Android SDK only.
   var merchantUrl: String
-  var region: RegionMessage
+  var region: GatewayRegion
   /// BCP-47 language tag for the 3DS challenge screen. Used by the iOS SDK only;
   /// the Android SDK always follows the device language.
   var challengeLocale: String? = nil
@@ -282,7 +291,7 @@ struct InitializeRequestMessage: Hashable, CustomStringConvertible {
     let merchantId = pigeonVar_list[0] as! String
     let merchantName = pigeonVar_list[1] as! String
     let merchantUrl = pigeonVar_list[2] as! String
-    let region = pigeonVar_list[3] as! RegionMessage
+    let region = pigeonVar_list[3] as! GatewayRegion
     let challengeLocale: String? = nilOrValue(pigeonVar_list[4])
     let challengeUi: ChallengeUiMessage? = nilOrValue(pigeonVar_list[5])
 
@@ -666,7 +675,7 @@ struct WalletRequestMessage: Hashable, CustomStringConvertible {
   var merchantDisplayName: String
   /// ISO 3166-1 alpha-2, e.g. "EG".
   var countryCode: String
-  var supportedNetworks: [CardNetworkMessage]
+  var supportedNetworks: [CardNetwork]
   /// Selects the Google Pay TEST environment on Android.
   var isTestEnvironment: Bool
   /// Android only.
@@ -680,7 +689,7 @@ struct WalletRequestMessage: Hashable, CustomStringConvertible {
     let session: SessionMessage? = nilOrValue(pigeonVar_list[0])
     let merchantDisplayName = pigeonVar_list[1] as! String
     let countryCode = pigeonVar_list[2] as! String
-    let supportedNetworks = pigeonVar_list[3] as! [CardNetworkMessage]
+    let supportedNetworks = pigeonVar_list[3] as! [CardNetwork]
     let isTestEnvironment = pigeonVar_list[4] as! Bool
     let googlePayMerchantId: String? = nilOrValue(pigeonVar_list[5])
     let applePayMerchantIdentifier: String? = nilOrValue(pigeonVar_list[6])
@@ -732,7 +741,7 @@ struct WalletRequestMessage: Hashable, CustomStringConvertible {
 /// Generated class from Pigeon that represents data sent in messages.
 struct WalletResultMessage: Hashable, CustomStringConvertible {
   var outcome: WalletOutcomeMessage
-  var wallet: DeviceWalletMessage
+  var wallet: DeviceWallet
   /// Display-only description such as "Visa ••••1234". Never the wallet token.
   var cardDescription: String? = nil
 
@@ -740,7 +749,7 @@ struct WalletResultMessage: Hashable, CustomStringConvertible {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> WalletResultMessage? {
     let outcome = pigeonVar_list[0] as! WalletOutcomeMessage
-    let wallet = pigeonVar_list[1] as! DeviceWalletMessage
+    let wallet = pigeonVar_list[1] as! DeviceWallet
     let cardDescription: String? = nilOrValue(pigeonVar_list[2])
 
     return WalletResultMessage(
@@ -1061,13 +1070,13 @@ struct TextBoxStyleMessage: Hashable, CustomStringConvertible {
 
 /// Generated class from Pigeon that represents data sent in messages.
 struct AndroidButtonStyleMessage: Hashable, CustomStringConvertible {
-  var type: ChallengeButtonTypeMessage
+  var type: ChallengeButtonType
   var style: ButtonStyleMessage
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> AndroidButtonStyleMessage? {
-    let type = pigeonVar_list[0] as! ChallengeButtonTypeMessage
+    let type = pigeonVar_list[0] as! ChallengeButtonType
     let style = pigeonVar_list[1] as! ButtonStyleMessage
 
     return AndroidButtonStyleMessage(
@@ -1107,8 +1116,8 @@ struct IosChallengeUiMessage: Hashable, CustomStringConvertible {
   var tintColor: Int64? = nil
   var navigationBarTintColor: Int64? = nil
   var cancelTextColor: Int64? = nil
-  var keyboardAppearance: KeyboardAppearanceMessage? = nil
-  var appearance: ChallengeAppearanceMessage? = nil
+  var keyboardAppearance: ChallengeKeyboardAppearance? = nil
+  var appearance: ChallengeAppearance? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -1119,8 +1128,8 @@ struct IosChallengeUiMessage: Hashable, CustomStringConvertible {
     let tintColor: Int64? = nilOrValue(pigeonVar_list[3])
     let navigationBarTintColor: Int64? = nilOrValue(pigeonVar_list[4])
     let cancelTextColor: Int64? = nilOrValue(pigeonVar_list[5])
-    let keyboardAppearance: KeyboardAppearanceMessage? = nilOrValue(pigeonVar_list[6])
-    let appearance: ChallengeAppearanceMessage? = nilOrValue(pigeonVar_list[7])
+    let keyboardAppearance: ChallengeKeyboardAppearance? = nilOrValue(pigeonVar_list[6])
+    let appearance: ChallengeAppearance? = nilOrValue(pigeonVar_list[7])
 
     return IosChallengeUiMessage(
       primaryBackgroundColor: primaryBackgroundColor,
@@ -1175,7 +1184,7 @@ private class PaymentApiPigeonCodecReader: FlutterStandardReader {
     case 129:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return RegionMessage(rawValue: enumResultAsInt)
+        return GatewayRegion(rawValue: enumResultAsInt)
       }
       return nil
     case 130:
@@ -1187,13 +1196,13 @@ private class PaymentApiPigeonCodecReader: FlutterStandardReader {
     case 131:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return DeviceWalletMessage(rawValue: enumResultAsInt)
+        return DeviceWallet(rawValue: enumResultAsInt)
       }
       return nil
     case 132:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return CardNetworkMessage(rawValue: enumResultAsInt)
+        return CardNetwork(rawValue: enumResultAsInt)
       }
       return nil
     case 133:
@@ -1205,19 +1214,19 @@ private class PaymentApiPigeonCodecReader: FlutterStandardReader {
     case 134:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return ChallengeButtonTypeMessage(rawValue: enumResultAsInt)
+        return ChallengeButtonType(rawValue: enumResultAsInt)
       }
       return nil
     case 135:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return ChallengeAppearanceMessage(rawValue: enumResultAsInt)
+        return ChallengeAppearance(rawValue: enumResultAsInt)
       }
       return nil
     case 136:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return KeyboardAppearanceMessage(rawValue: enumResultAsInt)
+        return ChallengeKeyboardAppearance(rawValue: enumResultAsInt)
       }
       return nil
     case 137:
@@ -1260,28 +1269,28 @@ private class PaymentApiPigeonCodecReader: FlutterStandardReader {
 
 private class PaymentApiPigeonCodecWriter: FlutterStandardWriter {
   override func writeValue(_ value: Any) {
-    if let value = value as? RegionMessage {
+    if let value = value as? GatewayRegion {
       super.writeByte(129)
       super.writeValue(value.rawValue)
     } else if let value = value as? AuthenticationOutcomeMessage {
       super.writeByte(130)
       super.writeValue(value.rawValue)
-    } else if let value = value as? DeviceWalletMessage {
+    } else if let value = value as? DeviceWallet {
       super.writeByte(131)
       super.writeValue(value.rawValue)
-    } else if let value = value as? CardNetworkMessage {
+    } else if let value = value as? CardNetwork {
       super.writeByte(132)
       super.writeValue(value.rawValue)
     } else if let value = value as? WalletOutcomeMessage {
       super.writeByte(133)
       super.writeValue(value.rawValue)
-    } else if let value = value as? ChallengeButtonTypeMessage {
+    } else if let value = value as? ChallengeButtonType {
       super.writeByte(134)
       super.writeValue(value.rawValue)
-    } else if let value = value as? ChallengeAppearanceMessage {
+    } else if let value = value as? ChallengeAppearance {
       super.writeByte(135)
       super.writeValue(value.rawValue)
-    } else if let value = value as? KeyboardAppearanceMessage {
+    } else if let value = value as? ChallengeKeyboardAppearance {
       super.writeByte(136)
       super.writeValue(value.rawValue)
     } else if let value = value as? InitializeRequestMessage {
@@ -1358,7 +1367,7 @@ protocol NbeGatewayHostApi {
   func initialize(request: InitializeRequestMessage, completion: @escaping (Result<Void, Error>) -> Void)
   func updateSessionWithCard(session: SessionMessage, card: CardMessage, additionalFields: [GatewayFieldMessage]?, completion: @escaping (Result<Void, Error>) -> Void)
   func authenticatePayer(request: AuthenticateRequestMessage, completion: @escaping (Result<AuthenticationResultMessage, Error>) -> Void)
-  func getAvailableWallet(request: WalletRequestMessage, completion: @escaping (Result<DeviceWalletMessage, Error>) -> Void)
+  func getAvailableWallet(request: WalletRequestMessage, completion: @escaping (Result<DeviceWallet, Error>) -> Void)
   func payWithDeviceWallet(request: WalletRequestMessage, completion: @escaping (Result<WalletResultMessage, Error>) -> Void)
 }
 

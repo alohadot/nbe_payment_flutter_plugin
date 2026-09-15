@@ -12,15 +12,20 @@ class MockNbePaymentFlutterPluginPlatform
 }
 
 void main() {
-  final NbePaymentFlutterPluginPlatform initialPlatform = NbePaymentFlutterPluginPlatform.instance;
+  final NbePaymentFlutterPluginPlatform initialPlatform =
+      NbePaymentFlutterPluginPlatform.instance;
 
   test('$MethodChannelNbePaymentFlutterPlugin is the default instance', () {
-    expect(initialPlatform, isInstanceOf<MethodChannelNbePaymentFlutterPlugin>());
+    expect(
+      initialPlatform,
+      isInstanceOf<MethodChannelNbePaymentFlutterPlugin>(),
+    );
   });
 
   test('getPlatformVersion', () async {
     NbePaymentFlutterPlugin nbePaymentFlutterPlugin = NbePaymentFlutterPlugin();
-    MockNbePaymentFlutterPluginPlatform fakePlatform = MockNbePaymentFlutterPluginPlatform();
+    MockNbePaymentFlutterPluginPlatform fakePlatform =
+        MockNbePaymentFlutterPluginPlatform();
     NbePaymentFlutterPluginPlatform.instance = fakePlatform;
 
     expect(await nbePaymentFlutterPlugin.getPlatformVersion(), '42');

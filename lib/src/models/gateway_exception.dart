@@ -1,0 +1,86 @@
+/// Technical failure codes reported by [GatewayException].
+///
+/// Payment outcomes such as a cancelled challenge or an issuer decline are not errors;
+/// they are returned as results. Branch on these codes, never on [GatewayException.message].
+enum GatewayErrorCode {
+  /// An operation was called before `initialize` completed.
+  notInitialized,
+
+  /// `initialize` was called again with a different configuration.
+  alreadyInitialized,
+
+  /// The native SDK reported a failure while initializing.
+  initializationFailed,
+
+  /// Another gateway operation is still running. Only one runs at a time.
+  operationInProgress,
+
+  /// An argument failed validation before anything was sent to the gateway.
+  invalidArgument,
+
+  /// The session API version is below the minimum supported by the native SDKs (61).
+  invalidApiVersion,
+
+  /// The session is missing fields required for authentication
+  /// (e.g. order amount or 3DS settings not loaded by the merchant server).
+  missingSessionParameter,
+
+  /// The gateway could not be reached.
+  network,
+
+  /// The gateway answered with an HTTP error. See [GatewayException.httpStatusCode].
+  gatewayRejected,
+
+  /// The gateway answered with a response the SDK could not interpret.
+  invalidGatewayResponse,
+
+  /// The 3DS challenge completion URL was invalid.
+  invalidChallengeCompletionUrl,
+
+  /// No visible screen was available to present the 3DS challenge or the wallet sheet.
+  uiUnavailable,
+
+  /// The device wallet is not available on this device.
+  walletUnavailable,
+
+  /// The wallet configuration was rejected (e.g. an invalid merchant identifier).
+  walletConfigurationInvalid,
+
+  /// The device wallet reported a failure.
+  walletFailed,
+
+  /// A failure that does not match any other code.
+  unknown,
+}
+
+/// A technical failure while talking to the payment gateway.
+class GatewayException implements Exception {
+  const GatewayException({
+    required this.code,
+    required this.message,
+    this.httpStatusCode,
+    this.nativeDetails,
+  });
+
+  final GatewayErrorCode code;
+
+  /// Human-readable description for logs and developers. Never contains card data.
+  final String message;
+
+  /// Set only when [code] is [GatewayErrorCode.gatewayRejected].
+  final int? httpStatusCode;
+
+  /// Sanitized native diagnostic information, for debugging only.
+  final String? nativeDetails;
+
+  @override
+  String toString() {
+    final status = httpStatusCode == null
+        ? ''
+        : ', httpStatusCode: $httpStatusCode';
+    final details = nativeDetails == null
+        ? ''
+        : ', nativeDetails: $nativeDetails';
+    return 'GatewayException(${code.name}: $message$status$details)';
+  }
+}

@@ -211,7 +211,13 @@ class GatewayBridgeError (
   val details: Any? = null
 ) : RuntimeException()
 
-enum class RegionMessage(val raw: Int) {
+/**
+ * Gateway data center the merchant account lives in.
+ *
+ * Only regions available in both native SDKs are listed.
+ */
+enum class GatewayRegion(val raw: Int) {
+  /** Mastercard test environment (MTF). No real money moves. */
   MTF(0),
   EUROPE(1),
   NORTH_AMERICA(2),
@@ -221,7 +227,7 @@ enum class RegionMessage(val raw: Int) {
   SAUDI_ARABIA(6);
 
   companion object {
-    fun ofRaw(raw: Int): RegionMessage? {
+    fun ofRaw(raw: Int): GatewayRegion? {
       return values().firstOrNull { it.raw == raw }
     }
   }
@@ -243,19 +249,23 @@ enum class AuthenticationOutcomeMessage(val raw: Int) {
   }
 }
 
-enum class DeviceWalletMessage(val raw: Int) {
+/** Device wallet available for payments. */
+enum class DeviceWallet(val raw: Int) {
+  /** Android. */
   GOOGLE_PAY(0),
+  /** iOS. */
   APPLE_PAY(1),
+  /** No usable wallet on this device. */
   NONE(2);
 
   companion object {
-    fun ofRaw(raw: Int): DeviceWalletMessage? {
+    fun ofRaw(raw: Int): DeviceWallet? {
       return values().firstOrNull { it.raw == raw }
     }
   }
 }
 
-enum class CardNetworkMessage(val raw: Int) {
+enum class CardNetwork(val raw: Int) {
   VISA(0),
   MASTERCARD(1),
   AMEX(2),
@@ -263,7 +273,7 @@ enum class CardNetworkMessage(val raw: Int) {
   JCB(4);
 
   companion object {
-    fun ofRaw(raw: Int): CardNetworkMessage? {
+    fun ofRaw(raw: Int): CardNetwork? {
       return values().firstOrNull { it.raw == raw }
     }
   }
@@ -280,7 +290,8 @@ enum class WalletOutcomeMessage(val raw: Int) {
   }
 }
 
-enum class ChallengeButtonTypeMessage(val raw: Int) {
+/** Buttons of the challenge screen that the Android SDK can style individually. */
+enum class ChallengeButtonType(val raw: Int) {
   SUBMIT(0),
   CONTINUE_BUTTON(1),
   NEXT(2),
@@ -290,30 +301,30 @@ enum class ChallengeButtonTypeMessage(val raw: Int) {
   ADD_CHOICE(6);
 
   companion object {
-    fun ofRaw(raw: Int): ChallengeButtonTypeMessage? {
+    fun ofRaw(raw: Int): ChallengeButtonType? {
       return values().firstOrNull { it.raw == raw }
     }
   }
 }
 
-enum class ChallengeAppearanceMessage(val raw: Int) {
+enum class ChallengeAppearance(val raw: Int) {
   LIGHT(0),
   DARK(1);
 
   companion object {
-    fun ofRaw(raw: Int): ChallengeAppearanceMessage? {
+    fun ofRaw(raw: Int): ChallengeAppearance? {
       return values().firstOrNull { it.raw == raw }
     }
   }
 }
 
-enum class KeyboardAppearanceMessage(val raw: Int) {
+enum class ChallengeKeyboardAppearance(val raw: Int) {
   SYSTEM_DEFAULT(0),
   LIGHT(1),
   DARK(2);
 
   companion object {
-    fun ofRaw(raw: Int): KeyboardAppearanceMessage? {
+    fun ofRaw(raw: Int): ChallengeKeyboardAppearance? {
       return values().firstOrNull { it.raw == raw }
     }
   }
@@ -326,7 +337,7 @@ data class InitializeRequestMessage (
   val merchantName: String,
   /** Used by the Android SDK only. */
   val merchantUrl: String,
-  val region: RegionMessage,
+  val region: GatewayRegion,
   /**
    * BCP-47 language tag for the 3DS challenge screen. Used by the iOS SDK only;
    * the Android SDK always follows the device language.
@@ -340,7 +351,7 @@ data class InitializeRequestMessage (
       val merchantId = pigeonVar_list[0] as String
       val merchantName = pigeonVar_list[1] as String
       val merchantUrl = pigeonVar_list[2] as String
-      val region = pigeonVar_list[3] as RegionMessage
+      val region = pigeonVar_list[3] as GatewayRegion
       val challengeLocale = pigeonVar_list[4] as String?
       val challengeUi = pigeonVar_list[5] as ChallengeUiMessage?
       return InitializeRequestMessage(merchantId, merchantName, merchantUrl, region, challengeLocale, challengeUi)
@@ -715,7 +726,7 @@ data class WalletRequestMessage (
   val merchantDisplayName: String,
   /** ISO 3166-1 alpha-2, e.g. "EG". */
   val countryCode: String,
-  val supportedNetworks: List<CardNetworkMessage>,
+  val supportedNetworks: List<CardNetwork>,
   /** Selects the Google Pay TEST environment on Android. */
   val isTestEnvironment: Boolean,
   /** Android only. */
@@ -729,7 +740,7 @@ data class WalletRequestMessage (
       val session = pigeonVar_list[0] as SessionMessage?
       val merchantDisplayName = pigeonVar_list[1] as String
       val countryCode = pigeonVar_list[2] as String
-      val supportedNetworks = pigeonVar_list[3] as List<CardNetworkMessage>
+      val supportedNetworks = pigeonVar_list[3] as List<CardNetwork>
       val isTestEnvironment = pigeonVar_list[4] as Boolean
       val googlePayMerchantId = pigeonVar_list[5] as String?
       val applePayMerchantIdentifier = pigeonVar_list[6] as String?
@@ -777,7 +788,7 @@ data class WalletRequestMessage (
 /** Generated class from Pigeon that represents data sent in messages. */
 data class WalletResultMessage (
   val outcome: WalletOutcomeMessage,
-  val wallet: DeviceWalletMessage,
+  val wallet: DeviceWallet,
   /** Display-only description such as "Visa ••••1234". Never the wallet token. */
   val cardDescription: String? = null
 )
@@ -785,7 +796,7 @@ data class WalletResultMessage (
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): WalletResultMessage {
       val outcome = pigeonVar_list[0] as WalletOutcomeMessage
-      val wallet = pigeonVar_list[1] as DeviceWalletMessage
+      val wallet = pigeonVar_list[1] as DeviceWallet
       val cardDescription = pigeonVar_list[2] as String?
       return WalletResultMessage(outcome, wallet, cardDescription)
     }
@@ -1097,13 +1108,13 @@ data class TextBoxStyleMessage (
 
 /** Generated class from Pigeon that represents data sent in messages. */
 data class AndroidButtonStyleMessage (
-  val type: ChallengeButtonTypeMessage,
+  val type: ChallengeButtonType,
   val style: ButtonStyleMessage
 )
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): AndroidButtonStyleMessage {
-      val type = pigeonVar_list[0] as ChallengeButtonTypeMessage
+      val type = pigeonVar_list[0] as ChallengeButtonType
       val style = pigeonVar_list[1] as ButtonStyleMessage
       return AndroidButtonStyleMessage(type, style)
     }
@@ -1144,8 +1155,8 @@ data class IosChallengeUiMessage (
   val tintColor: Long? = null,
   val navigationBarTintColor: Long? = null,
   val cancelTextColor: Long? = null,
-  val keyboardAppearance: KeyboardAppearanceMessage? = null,
-  val appearance: ChallengeAppearanceMessage? = null
+  val keyboardAppearance: ChallengeKeyboardAppearance? = null,
+  val appearance: ChallengeAppearance? = null
 )
  {
   companion object {
@@ -1156,8 +1167,8 @@ data class IosChallengeUiMessage (
       val tintColor = pigeonVar_list[3] as Long?
       val navigationBarTintColor = pigeonVar_list[4] as Long?
       val cancelTextColor = pigeonVar_list[5] as Long?
-      val keyboardAppearance = pigeonVar_list[6] as KeyboardAppearanceMessage?
-      val appearance = pigeonVar_list[7] as ChallengeAppearanceMessage?
+      val keyboardAppearance = pigeonVar_list[6] as ChallengeKeyboardAppearance?
+      val appearance = pigeonVar_list[7] as ChallengeAppearance?
       return IosChallengeUiMessage(primaryBackgroundColor, secondaryBackgroundColor, labelBackgroundColor, tintColor, navigationBarTintColor, cancelTextColor, keyboardAppearance, appearance)
     }
   }
@@ -1205,7 +1216,7 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
     return when (type) {
       129.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          RegionMessage.ofRaw(it.toInt())
+          GatewayRegion.ofRaw(it.toInt())
         }
       }
       130.toByte() -> {
@@ -1215,12 +1226,12 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
       }
       131.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          DeviceWalletMessage.ofRaw(it.toInt())
+          DeviceWallet.ofRaw(it.toInt())
         }
       }
       132.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          CardNetworkMessage.ofRaw(it.toInt())
+          CardNetwork.ofRaw(it.toInt())
         }
       }
       133.toByte() -> {
@@ -1230,17 +1241,17 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
       }
       134.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          ChallengeButtonTypeMessage.ofRaw(it.toInt())
+          ChallengeButtonType.ofRaw(it.toInt())
         }
       }
       135.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          ChallengeAppearanceMessage.ofRaw(it.toInt())
+          ChallengeAppearance.ofRaw(it.toInt())
         }
       }
       136.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
-          KeyboardAppearanceMessage.ofRaw(it.toInt())
+          ChallengeKeyboardAppearance.ofRaw(it.toInt())
         }
       }
       137.toByte() -> {
@@ -1328,7 +1339,7 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
   }
   override fun writeValue(stream: ByteArrayOutputStream, value: Any?)   {
     when (value) {
-      is RegionMessage -> {
+      is GatewayRegion -> {
         stream.write(129)
         writeValue(stream, value.raw.toLong())
       }
@@ -1336,11 +1347,11 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
         stream.write(130)
         writeValue(stream, value.raw.toLong())
       }
-      is DeviceWalletMessage -> {
+      is DeviceWallet -> {
         stream.write(131)
         writeValue(stream, value.raw.toLong())
       }
-      is CardNetworkMessage -> {
+      is CardNetwork -> {
         stream.write(132)
         writeValue(stream, value.raw.toLong())
       }
@@ -1348,15 +1359,15 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
         stream.write(133)
         writeValue(stream, value.raw.toLong())
       }
-      is ChallengeButtonTypeMessage -> {
+      is ChallengeButtonType -> {
         stream.write(134)
         writeValue(stream, value.raw.toLong())
       }
-      is ChallengeAppearanceMessage -> {
+      is ChallengeAppearance -> {
         stream.write(135)
         writeValue(stream, value.raw.toLong())
       }
-      is KeyboardAppearanceMessage -> {
+      is ChallengeKeyboardAppearance -> {
         stream.write(136)
         writeValue(stream, value.raw.toLong())
       }
@@ -1435,7 +1446,7 @@ interface NbeGatewayHostApi {
   fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit)
   fun updateSessionWithCard(session: SessionMessage, card: CardMessage, additionalFields: List<GatewayFieldMessage>?, callback: (Result<Unit>) -> Unit)
   fun authenticatePayer(request: AuthenticateRequestMessage, callback: (Result<AuthenticationResultMessage>) -> Unit)
-  fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWalletMessage>) -> Unit)
+  fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit)
   fun payWithDeviceWallet(request: WalletRequestMessage, callback: (Result<WalletResultMessage>) -> Unit)
 
   companion object {
@@ -1513,7 +1524,7 @@ interface NbeGatewayHostApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val requestArg = args[0] as WalletRequestMessage
-            api.getAvailableWallet(requestArg) { result: Result<DeviceWalletMessage> ->
+            api.getAvailableWallet(requestArg) { result: Result<DeviceWallet> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(PaymentApiPigeonUtils.wrapError(error))

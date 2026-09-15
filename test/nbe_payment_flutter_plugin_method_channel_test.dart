@@ -5,7 +5,8 @@ import 'package:nbe_payment_flutter_plugin/nbe_payment_flutter_plugin_method_cha
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  MethodChannelNbePaymentFlutterPlugin platform = MethodChannelNbePaymentFlutterPlugin();
+  MethodChannelNbePaymentFlutterPlugin platform =
+      MethodChannelNbePaymentFlutterPlugin();
   const MethodChannel channel = MethodChannel('nbe_payment_flutter_plugin');
 
   setUp(() {

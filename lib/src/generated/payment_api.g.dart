@@ -116,7 +116,11 @@ int _deepHash(Object? value) {
 }
 
 
-enum RegionMessage {
+/// Gateway data center the merchant account lives in.
+///
+/// Only regions available in both native SDKs are listed.
+enum GatewayRegion {
+  /// Mastercard test environment (MTF). No real money moves.
   mtf,
   europe,
   northAmerica,
@@ -136,13 +140,17 @@ enum AuthenticationOutcomeMessage {
   unknownRecommendation,
 }
 
-enum DeviceWalletMessage {
+/// Device wallet available for payments.
+enum DeviceWallet {
+  /// Android.
   googlePay,
+  /// iOS.
   applePay,
+  /// No usable wallet on this device.
   none,
 }
 
-enum CardNetworkMessage {
+enum CardNetwork {
   visa,
   mastercard,
   amex,
@@ -155,7 +163,8 @@ enum WalletOutcomeMessage {
   cancelled,
 }
 
-enum ChallengeButtonTypeMessage {
+/// Buttons of the challenge screen that the Android SDK can style individually.
+enum ChallengeButtonType {
   submit,
   continueButton,
   next,
@@ -165,12 +174,12 @@ enum ChallengeButtonTypeMessage {
   addChoice,
 }
 
-enum ChallengeAppearanceMessage {
+enum ChallengeAppearance {
   light,
   dark,
 }
 
-enum KeyboardAppearanceMessage {
+enum ChallengeKeyboardAppearance {
   systemDefault,
   light,
   dark,
@@ -194,7 +203,7 @@ class InitializeRequestMessage {
   /// Used by the Android SDK only.
   String merchantUrl;
 
-  RegionMessage region;
+  GatewayRegion region;
 
   /// BCP-47 language tag for the 3DS challenge screen. Used by the iOS SDK only;
   /// the Android SDK always follows the device language.
@@ -222,7 +231,7 @@ class InitializeRequestMessage {
       merchantId: result[0]! as String,
       merchantName: result[1]! as String,
       merchantUrl: result[2]! as String,
-      region: result[3]! as RegionMessage,
+      region: result[3]! as GatewayRegion,
       challengeLocale: result[4] as String?,
       challengeUi: result[5] as ChallengeUiMessage?,
     );
@@ -659,7 +668,7 @@ class WalletRequestMessage {
   /// ISO 3166-1 alpha-2, e.g. "EG".
   String countryCode;
 
-  List<CardNetworkMessage> supportedNetworks;
+  List<CardNetwork> supportedNetworks;
 
   /// Selects the Google Pay TEST environment on Android.
   bool isTestEnvironment;
@@ -691,7 +700,7 @@ class WalletRequestMessage {
       session: result[0] as SessionMessage?,
       merchantDisplayName: result[1]! as String,
       countryCode: result[2]! as String,
-      supportedNetworks: (result[3]! as List<Object?>).cast<CardNetworkMessage>(),
+      supportedNetworks: (result[3]! as List<Object?>).cast<CardNetwork>(),
       isTestEnvironment: result[4]! as bool,
       googlePayMerchantId: result[5] as String?,
       applePayMerchantIdentifier: result[6] as String?,
@@ -729,7 +738,7 @@ class WalletResultMessage {
 
   WalletOutcomeMessage outcome;
 
-  DeviceWalletMessage wallet;
+  DeviceWallet wallet;
 
   /// Display-only description such as "Visa ••••1234". Never the wallet token.
   String? cardDescription;
@@ -749,7 +758,7 @@ class WalletResultMessage {
     result as List<Object?>;
     return WalletResultMessage(
       outcome: result[0]! as WalletOutcomeMessage,
-      wallet: result[1]! as DeviceWalletMessage,
+      wallet: result[1]! as DeviceWallet,
       cardDescription: result[2] as String?,
     );
   }
@@ -1116,7 +1125,7 @@ class AndroidButtonStyleMessage {
     required this.style,
   });
 
-  ChallengeButtonTypeMessage type;
+  ChallengeButtonType type;
 
   ButtonStyleMessage style;
 
@@ -1133,7 +1142,7 @@ class AndroidButtonStyleMessage {
   static AndroidButtonStyleMessage decode(Object result) {
     result as List<Object?>;
     return AndroidButtonStyleMessage(
-      type: result[0]! as ChallengeButtonTypeMessage,
+      type: result[0]! as ChallengeButtonType,
       style: result[1]! as ButtonStyleMessage,
     );
   }
@@ -1184,9 +1193,9 @@ class IosChallengeUiMessage {
 
   int? cancelTextColor;
 
-  KeyboardAppearanceMessage? keyboardAppearance;
+  ChallengeKeyboardAppearance? keyboardAppearance;
 
-  ChallengeAppearanceMessage? appearance;
+  ChallengeAppearance? appearance;
 
   List<Object?> _toList() {
     return <Object?>[
@@ -1213,8 +1222,8 @@ class IosChallengeUiMessage {
       tintColor: result[3] as int?,
       navigationBarTintColor: result[4] as int?,
       cancelTextColor: result[5] as int?,
-      keyboardAppearance: result[6] as KeyboardAppearanceMessage?,
-      appearance: result[7] as ChallengeAppearanceMessage?,
+      keyboardAppearance: result[6] as ChallengeKeyboardAppearance?,
+      appearance: result[7] as ChallengeAppearance?,
     );
   }
 
@@ -1248,28 +1257,28 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is RegionMessage) {
+    }    else if (value is GatewayRegion) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
     }    else if (value is AuthenticationOutcomeMessage) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    }    else if (value is DeviceWalletMessage) {
+    }    else if (value is DeviceWallet) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is CardNetworkMessage) {
+    }    else if (value is CardNetwork) {
       buffer.putUint8(132);
       writeValue(buffer, value.index);
     }    else if (value is WalletOutcomeMessage) {
       buffer.putUint8(133);
       writeValue(buffer, value.index);
-    }    else if (value is ChallengeButtonTypeMessage) {
+    }    else if (value is ChallengeButtonType) {
       buffer.putUint8(134);
       writeValue(buffer, value.index);
-    }    else if (value is ChallengeAppearanceMessage) {
+    }    else if (value is ChallengeAppearance) {
       buffer.putUint8(135);
       writeValue(buffer, value.index);
-    }    else if (value is KeyboardAppearanceMessage) {
+    }    else if (value is ChallengeKeyboardAppearance) {
       buffer.putUint8(136);
       writeValue(buffer, value.index);
     }    else if (value is InitializeRequestMessage) {
@@ -1330,28 +1339,28 @@ class _PigeonCodec extends StandardMessageCodec {
     switch (type) {
       case 129:
         final value = readValue(buffer) as int?;
-        return value == null ? null : RegionMessage.values[value];
+        return value == null ? null : GatewayRegion.values[value];
       case 130:
         final value = readValue(buffer) as int?;
         return value == null ? null : AuthenticationOutcomeMessage.values[value];
       case 131:
         final value = readValue(buffer) as int?;
-        return value == null ? null : DeviceWalletMessage.values[value];
+        return value == null ? null : DeviceWallet.values[value];
       case 132:
         final value = readValue(buffer) as int?;
-        return value == null ? null : CardNetworkMessage.values[value];
+        return value == null ? null : CardNetwork.values[value];
       case 133:
         final value = readValue(buffer) as int?;
         return value == null ? null : WalletOutcomeMessage.values[value];
       case 134:
         final value = readValue(buffer) as int?;
-        return value == null ? null : ChallengeButtonTypeMessage.values[value];
+        return value == null ? null : ChallengeButtonType.values[value];
       case 135:
         final value = readValue(buffer) as int?;
-        return value == null ? null : ChallengeAppearanceMessage.values[value];
+        return value == null ? null : ChallengeAppearance.values[value];
       case 136:
         final value = readValue(buffer) as int?;
-        return value == null ? null : KeyboardAppearanceMessage.values[value];
+        return value == null ? null : ChallengeKeyboardAppearance.values[value];
       case 137:
         return InitializeRequestMessage.decode(readValue(buffer)!);
       case 138:
@@ -1458,7 +1467,7 @@ class NbeGatewayHostApi {
     return pigeonVar_replyValue! as AuthenticationResultMessage;
   }
 
-  Future<DeviceWalletMessage> getAvailableWallet(WalletRequestMessage request) async {
+  Future<DeviceWallet> getAvailableWallet(WalletRequestMessage request) async {
     final pigeonVar_channelName = 'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.getAvailableWallet$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -1474,7 +1483,7 @@ class NbeGatewayHostApi {
         isNullValid: false,
     )
     ;
-    return pigeonVar_replyValue! as DeviceWalletMessage;
+    return pigeonVar_replyValue! as DeviceWallet;
   }
 
   Future<WalletResultMessage> payWithDeviceWallet(WalletRequestMessage request) async {
