@@ -43,7 +43,7 @@ flutter devices                       # pick a simulator id
 flutter test integration_test/plugin_integration_test.dart -d <simulator-id>
 ```
 
-Expected: 4 tests pass.
+Expected: 5 tests pass.
 
 ## 4. Manual test with a real MTF session
 

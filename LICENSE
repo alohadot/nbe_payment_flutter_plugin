@@ -1,1 +1,11 @@
-TODO: Add your license here.
+Proprietary and confidential. All rights reserved.
+
+This plugin is for internal use by its owner and authorized clients only. Copying,
+distribution or publication without written permission is not allowed.
+
+Third-party components bundled in this repository keep their own licenses and terms:
+
+- Mastercard Gateway Android SDK (android/gateway-repo) — see its POM and the Gateway
+  Merchant Administration portal terms.
+- Mastercard Gateway iOS SDK and mSignia uSDK (ios/Frameworks) — see the Gateway Merchant
+  Administration portal terms.

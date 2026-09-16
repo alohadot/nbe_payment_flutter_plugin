@@ -5,8 +5,9 @@
 //   cd example
 //   flutter test integration_test/plugin_integration_test.dart -d <device-id>
 //
-// Only operations implemented natively so far are covered; tests are added as each native
-// method is implemented.
+// These tests use a non-existent session: they prove the path from Dart to the gateway and the
+// error mapping, not a successful payment. Successful payments and OTP challenges need a real
+// MTF session and are covered by the manual tests in example/README.md.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -177,4 +178,52 @@ void main() {
     );
     debugPrint('Available wallet on this device: ${wallet.name}');
   });
+
+  // Simulates a double tap: two operations started without waiting. One must reach the
+  // gateway, the other must be rejected by the plugin, and the plugin must accept a new call
+  // afterwards.
+  testWidgets(
+    'concurrent operations are rejected, then the gateway is usable again',
+    (tester) async {
+      final gateway = NbePaymentGateway();
+      if (!gateway.isInitialized) {
+        await gateway.initialize(_configuration);
+      }
+
+      Future<GatewayErrorCode?> attempt() async {
+        try {
+          await gateway.updateSessionWithCard(_unknownSession, _testCard);
+          return null;
+        } on GatewayException catch (error) {
+          return error.code;
+        }
+      }
+
+      final codes = await Future.wait([attempt(), attempt()]);
+      expect(
+        codes,
+        unorderedEquals([
+          GatewayErrorCode.gatewayRejected,
+          GatewayErrorCode.operationInProgress,
+        ]),
+      );
+
+      expect(await attempt(), GatewayErrorCode.gatewayRejected);
+    },
+  );
 }
+
+const _unknownSession = PaymentSession(
+  id: 'SESSION0000000000000000000000000',
+  orderId: 'ORDER-INTEGRATION-TEST',
+  amount: '1.00',
+  currency: 'EGP',
+  apiVersion: '100',
+);
+
+const _testCard = CardDetails(
+  number: '5123450000000008',
+  expiryMonth: '01',
+  expiryYear: '39',
+  securityCode: '100',
+);

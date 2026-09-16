@@ -1,11 +1,13 @@
 name: nbe_payment_flutter_plugin
 description: "Flutter plugin for the NBE payment gateway (Mastercard Gateway SDK) on Android and iOS."
 version: 0.0.1
-homepage:
+# Private package distributed from the company Git repository; never published to pub.dev.
+publish_to: none
 
 environment:
   sdk: ^3.11.5
-  flutter: '>=3.3.0'
+  # Color.toARGB32 (used to send challenge colors to native code) needs Flutter 3.27.
+  flutter: '>=3.27.0'
 
 dependencies:
   flutter:
