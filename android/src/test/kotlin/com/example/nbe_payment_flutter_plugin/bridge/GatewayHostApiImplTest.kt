@@ -43,7 +43,12 @@ internal class GatewayHostApiImplTest {
         apiVersion = "100",
     )
 
-    private val card = CardMessage(number = "5123450000000008", expiryMonth = "01", expiryYear = "39")
+    private val card = CardMessage(
+        number = "5123450000000008",
+        securityCode = "100",
+        expiryMonth = "01",
+        expiryYear = "39",
+    )
 
     /** Keeps the adapter callback so each test decides when and how the SDK answers. */
     private class ControllableSdkAdapter : GatewaySdkAdapter {
@@ -64,6 +69,17 @@ internal class GatewayHostApiImplTest {
             callback: (Result<Unit>) -> Unit,
         ) {
             calls += "updateSessionWithCard"
+            errorToThrow?.let { throw it }
+            pendingCallbacks += callback
+        }
+
+        override fun updateSessionWithSecurityCode(
+            session: SessionMessage,
+            securityCode: String,
+            additionalFields: List<GatewayFieldMessage>?,
+            callback: (Result<Unit>) -> Unit,
+        ) {
+            calls += "updateSessionWithSecurityCode"
             errorToThrow?.let { throw it }
             pendingCallbacks += callback
         }
@@ -218,6 +234,24 @@ internal class GatewayHostApiImplTest {
 
         assertEquals(listOf("updateSessionWithCard"), adapter.calls)
         assertEquals(listOf(Result.success(Unit)), results)
+    }
+
+    @Test
+    fun forwardsUpdateSessionWithSecurityCodeToTheAdapter() {
+        hostApi.updateSessionWithSecurityCode(session, "100", null) { results += it }
+        adapter.pendingCallbacks.single()(Result.success(Unit))
+
+        assertEquals(listOf("updateSessionWithSecurityCode"), adapter.calls)
+        assertEquals(listOf(Result.success(Unit)), results)
+    }
+
+    @Test
+    fun securityCodeUpdateAndInitializeShareTheSameLock() {
+        initialize()
+        hostApi.updateSessionWithSecurityCode(session, "100", null) { results += it }
+
+        assertEquals(listOf("initialize"), adapter.calls)
+        assertEquals(errorCodeOperationInProgress, results.single().bridgeError().code)
     }
 
     @Test

@@ -76,6 +76,11 @@ one call with one result.
    `uiUnavailable`, not a crash.
 8. **Wallet tokens never reach Dart.** They go from the wallet sheet into the session inside
    native code; Dart only receives a display description such as `Visa ••••1234`.
+9. **`sourceOfFunds.*` is written only by the payload builders** in `SessionPayloads.kt` /
+   `SessionPayloads.swift`, from typed inputs. `GatewayFields` rejects those keys in any
+   spelling, and each builder writes its own card fields *after* the free-form fields, so an
+   additional field can never replace them. A payload that must leave the stored card in place
+   (`buildUpdateSessionWithSecurityCodePayload`) therefore writes exactly one key.
 
 ## Initialization model
 

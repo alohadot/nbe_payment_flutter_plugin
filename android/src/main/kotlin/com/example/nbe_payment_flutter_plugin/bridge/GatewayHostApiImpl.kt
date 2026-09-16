@@ -42,6 +42,17 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
         }
     }
 
+    override fun updateSessionWithSecurityCode(
+        session: SessionMessage,
+        securityCode: String,
+        additionalFields: List<GatewayFieldMessage>?,
+        callback: (Result<Unit>) -> Unit,
+    ) {
+        runExclusively(callback) { complete ->
+            sdkAdapter.updateSessionWithSecurityCode(session, securityCode, additionalFields, complete)
+        }
+    }
+
     override fun authenticatePayer(
         request: AuthenticateRequestMessage,
         callback: (Result<AuthenticationResultMessage>) -> Unit,

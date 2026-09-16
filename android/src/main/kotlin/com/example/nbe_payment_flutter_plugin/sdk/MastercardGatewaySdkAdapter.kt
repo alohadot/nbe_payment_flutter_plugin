@@ -137,6 +137,29 @@ class MastercardGatewaySdkAdapter(
         card: CardMessage,
         additionalFields: List<GatewayFieldMessage>?,
         callback: (Result<Unit>) -> Unit,
+    ) = updateSession(session, callback) {
+        buildUpdateSessionWithCardPayload(card, additionalFields)
+    }
+
+    override fun updateSessionWithSecurityCode(
+        session: SessionMessage,
+        securityCode: String,
+        additionalFields: List<GatewayFieldMessage>?,
+        callback: (Result<Unit>) -> Unit,
+    ) = updateSession(session, callback) {
+        buildUpdateSessionWithSecurityCodePayload(securityCode, additionalFields)
+    }
+
+    /**
+     * Sends one update-session request to the gateway.
+     *
+     * [buildPayload] runs only once the SDK state has been checked. The payload holds payer
+     * data, so it is handed to the SDK and never logged or stored.
+     */
+    private fun updateSession(
+        session: SessionMessage,
+        callback: (Result<Unit>) -> Unit,
+        buildPayload: () -> GatewayMap,
     ) {
         // Without this check the SDK fails with an UninitializedPropertyAccessException.
         if (!GatewaySDK.initialized) {
@@ -152,7 +175,7 @@ class MastercardGatewaySdkAdapter(
         }
 
         val payload = try {
-            buildUpdateSessionWithCardPayload(card, additionalFields)
+            buildPayload()
         } catch (error: IllegalArgumentException) {
             callback(
                 Result.failure(
@@ -168,8 +191,7 @@ class MastercardGatewaySdkAdapter(
         // Must run before every gateway call: the SDK would otherwise log the card to logcat.
         SdkNetworkLogSilencer.silence()
 
-        // Both callbacks are delivered on the main thread by the SDK. The payload holds card
-        // data, so it is only handed to the SDK and never logged or stored.
+        // Both callbacks are delivered on the main thread by the SDK.
         GatewayAPI.updateSession(
             toSdkSession(session),
             payload,

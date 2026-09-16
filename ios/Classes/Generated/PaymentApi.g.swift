@@ -398,7 +398,8 @@ struct SessionMessage: Hashable, CustomStringConvertible {
 /// Generated class from Pigeon that represents data sent in messages.
 struct CardMessage: Hashable, CustomStringConvertible {
   var number: String
-  var securityCode: String? = nil
+  /// Never optional: the gateway refuses a card payment without it.
+  var securityCode: String
   var expiryMonth: String
   var expiryYear: String
   var nameOnCard: String? = nil
@@ -407,7 +408,7 @@ struct CardMessage: Hashable, CustomStringConvertible {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> CardMessage? {
     let number = pigeonVar_list[0] as! String
-    let securityCode: String? = nilOrValue(pigeonVar_list[1])
+    let securityCode = pigeonVar_list[1] as! String
     let expiryMonth = pigeonVar_list[2] as! String
     let expiryYear = pigeonVar_list[3] as! String
     let nameOnCard: String? = nilOrValue(pigeonVar_list[4])
@@ -1366,6 +1367,12 @@ class PaymentApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 protocol NbeGatewayHostApi {
   func initialize(request: InitializeRequestMessage, completion: @escaping (Result<Void, Error>) -> Void)
   func updateSessionWithCard(session: SessionMessage, card: CardMessage, additionalFields: [GatewayFieldMessage]?, completion: @escaping (Result<Void, Error>) -> Void)
+  /// Adds only `sourceOfFunds.provided.card.securityCode` to a session that already holds a
+  /// card, which is how a payment with a card stored by the merchant server is completed.
+  ///
+  /// The security code travels as a plain parameter rather than inside a message class on
+  /// purpose: generated classes print every field in their `toString`.
+  func updateSessionWithSecurityCode(session: SessionMessage, securityCode: String, additionalFields: [GatewayFieldMessage]?, completion: @escaping (Result<Void, Error>) -> Void)
   func authenticatePayer(request: AuthenticateRequestMessage, completion: @escaping (Result<AuthenticationResultMessage, Error>) -> Void)
   func getAvailableWallet(request: WalletRequestMessage, completion: @escaping (Result<DeviceWallet, Error>) -> Void)
   func payWithDeviceWallet(request: WalletRequestMessage, completion: @escaping (Result<WalletResultMessage, Error>) -> Void)
@@ -1412,6 +1419,30 @@ class NbeGatewayHostApiSetup {
       }
     } else {
       updateSessionWithCardChannel.setMessageHandler(nil)
+    }
+    /// Adds only `sourceOfFunds.provided.card.securityCode` to a session that already holds a
+    /// card, which is how a payment with a card stored by the merchant server is completed.
+    ///
+    /// The security code travels as a plain parameter rather than inside a message class on
+    /// purpose: generated classes print every field in their `toString`.
+    let updateSessionWithSecurityCodeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.updateSessionWithSecurityCode\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      updateSessionWithSecurityCodeChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionArg = args[0] as! SessionMessage
+        let securityCodeArg = args[1] as! String
+        let additionalFieldsArg: [GatewayFieldMessage]? = nilOrValue(args[2])
+        api.updateSessionWithSecurityCode(session: sessionArg, securityCode: securityCodeArg, additionalFields: additionalFieldsArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      updateSessionWithSecurityCodeChannel.setMessageHandler(nil)
     }
     let authenticatePayerChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.authenticatePayer\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

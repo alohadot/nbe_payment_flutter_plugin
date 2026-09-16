@@ -22,7 +22,8 @@ import 'authentication_transaction_id.dart';
 /// Typical flow:
 /// 1. [initialize] once with the merchant configuration.
 /// 2. Get a [PaymentSession] from your merchant server.
-/// 3. Add the payment method: [updateSessionWithCard] or [payWithDeviceWallet].
+/// 3. Add the payment method: [updateSessionWithCard], [payWithDeviceWallet], or
+///    [updateSessionWithSecurityCode] when the server already put a saved card in the session.
 /// 4. [authenticatePayer] (3-D Secure) and send the result to your server.
 /// 5. The merchant server completes the payment with the gateway.
 ///
@@ -166,6 +167,41 @@ class NbePaymentGateway {
       () => _hostApi.updateSessionWithCard(
         toSessionMessage(session),
         toCardMessage(card),
+        toGatewayFieldMessages(additionalFields),
+      ),
+    );
+  }
+
+  /// Adds only the payer's security code (CVV) to a gateway [session] that already holds a
+  /// card, which is how a payment with a card saved by the merchant server is completed.
+  ///
+  /// The gateway refuses a card payment without a security code and a saved card never
+  /// carries one, so the payer types it and it is added here. Only
+  /// `sourceOfFunds.provided.card.securityCode` is sent: the card stored in the session is
+  /// left untouched, unlike [updateSessionWithCard], which would replace it.
+  ///
+  /// Call this *after* the merchant server has put the saved card in the session. A server
+  /// update that runs afterwards replaces the session's payment details and drops the code,
+  /// and the payment then fails with no visible cause.
+  ///
+  /// [securityCode] must be 3 or 4 digits. It is handed to the gateway and neither kept nor
+  /// logged by the plugin; keep it short-lived in the app as well.
+  ///
+  /// [additionalFields] can carry extra session fields such as billing address or customer
+  /// details.
+  Future<void> updateSessionWithSecurityCode(
+    PaymentSession session,
+    String securityCode, {
+    GatewayFields? additionalFields,
+  }) async {
+    _requireInitialized();
+    validateSession(session);
+    validateSecurityCode(securityCode);
+
+    await _runExclusively(
+      () => _hostApi.updateSessionWithSecurityCode(
+        toSessionMessage(session),
+        securityCode,
         toGatewayFieldMessages(additionalFields),
       ),
     );

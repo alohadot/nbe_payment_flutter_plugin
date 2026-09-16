@@ -41,16 +41,17 @@ void main() {
     expect(message.nameOnCard, 'Test User');
   });
 
-  test('toCardMessage keeps absent optional fields null', () {
+  test('toCardMessage keeps an absent name on card null', () {
     const card = CardDetails(
       number: '5123450000000008',
       expiryMonth: '01',
       expiryYear: '39',
+      securityCode: '100',
     );
 
     final message = toCardMessage(card);
 
-    expect(message.securityCode, isNull);
+    expect(message.securityCode, '100');
     expect(message.nameOnCard, isNull);
   });
 

@@ -33,8 +33,28 @@ internal fun buildUpdateSessionWithCardPayload(
     payload.set("sourceOfFunds.provided.card.number", card.number)
     payload.set("sourceOfFunds.provided.card.expiry.month", card.expiryMonth)
     payload.set("sourceOfFunds.provided.card.expiry.year", card.expiryYear)
-    card.securityCode?.let { payload.set("sourceOfFunds.provided.card.securityCode", it) }
+    payload.set("sourceOfFunds.provided.card.securityCode", card.securityCode)
     card.nameOnCard?.let { payload.set("sourceOfFunds.provided.card.nameOnCard", it) }
+    return payload
+}
+
+/**
+ * Builds the update-session payload for a card the session already holds (a card saved by the
+ * merchant server): the security code and nothing else, so the stored card is left untouched.
+ *
+ * Additional fields are written first and the security code last, so it can never be replaced
+ * by a free-form field (the Dart layer already rejects `sourceOfFunds.*` keys).
+ *
+ * @throws IllegalArgumentException if an additional field carries no value.
+ */
+internal fun buildUpdateSessionWithSecurityCodePayload(
+    securityCode: String,
+    additionalFields: List<GatewayFieldMessage>?,
+): GatewayMap {
+    val payload = GatewayMap()
+    additionalFields.orEmpty().forEach { field -> payload.set(field.key, valueOf(field)) }
+
+    payload.set("sourceOfFunds.provided.card.securityCode", securityCode)
     return payload
 }
 

@@ -135,12 +135,16 @@ class SessionMessage {
 class CardMessage {
   CardMessage({
     required this.number,
+    required this.securityCode,
     required this.expiryMonth,
     required this.expiryYear,
   });
 
   String number;
-  String? securityCode;
+
+  /// Never optional: the gateway refuses a card payment without it.
+  String securityCode;
+
   String expiryMonth;
   String expiryYear;
   String? nameOnCard;
@@ -375,6 +379,18 @@ abstract class NbeGatewayHostApi {
   void updateSessionWithCard(
     SessionMessage session,
     CardMessage card,
+    List<GatewayFieldMessage>? additionalFields,
+  );
+
+  /// Adds only `sourceOfFunds.provided.card.securityCode` to a session that already holds a
+  /// card, which is how a payment with a card stored by the merchant server is completed.
+  ///
+  /// The security code travels as a plain parameter rather than inside a message class on
+  /// purpose: generated classes print every field in their `toString`.
+  @async
+  void updateSessionWithSecurityCode(
+    SessionMessage session,
+    String securityCode,
     List<GatewayFieldMessage>? additionalFields,
   );
 

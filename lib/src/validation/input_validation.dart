@@ -69,8 +69,15 @@ void validateCard(CardDetails card) {
   if (!RegExp(r'^\d{2}$').hasMatch(card.expiryYear)) {
     throw _invalidArgument('Card expiry year must be two digits.');
   }
-  final securityCode = card.securityCode;
-  if (securityCode != null && !RegExp(r'^\d{3,4}$').hasMatch(securityCode)) {
+  validateSecurityCode(card.securityCode);
+}
+
+/// Throws when the card security code is malformed. The value is never echoed.
+///
+/// Used for a full card entry and for a security-code-only session update, so both paths
+/// reject the same input.
+void validateSecurityCode(String securityCode) {
+  if (!RegExp(r'^\d{3,4}$').hasMatch(securityCode)) {
     throw _invalidArgument('Card security code must be 3 or 4 digits.');
   }
 }

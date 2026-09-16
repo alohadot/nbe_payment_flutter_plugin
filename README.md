@@ -21,6 +21,7 @@ final result = await gateway.authenticatePayer(session);
 - [Native requirements](#native-requirements)
 - [Payment flow](#payment-flow)
 - [Usage](#usage)
+  - [Paying with a saved card](#paying-with-a-saved-card)
 - [Public API](#public-api)
 - [Models](#models)
 - [Results and errors](#results-and-errors)
@@ -83,7 +84,7 @@ dependencies:
   nbe_payment_flutter_plugin:
     git:
       url: <company repository URL>
-      ref: v0.0.1 # always pin a tag
+      ref: v0.1.0 # always pin a tag
 ```
 
 Then complete the [native requirements](#native-requirements).
@@ -139,6 +140,7 @@ Your server     Create Session + Update Session (order, amount, currency, 3DS se
 App (plugin)    initialize (once)
                      ▼
 App (plugin)    updateSessionWithCard  ─or─  payWithDeviceWallet
+                ─or─  updateSessionWithSecurityCode  (saved card, see below)
                      ▼
 App (plugin)    authenticatePayer  → may show the issuer OTP screen
                      │  returns authenticationTransactionId
@@ -214,6 +216,31 @@ try {
 }
 ```
 
+### Paying with a saved card
+
+A card your server saved for the payer (a token) is put into the session by the server, not by
+the app. The gateway still refuses a card payment without a security code, and a saved card
+never carries one, so the payer types the CVV and the app adds that single field:
+
+```dart
+// 1. Your server creates the session AND puts the saved card in it (card_id / token).
+final session = await myServer.createSessionWithSavedCard(cardId);
+
+// 2. Ask the payer for the CVV and add it to the session. The saved card is left untouched:
+//    only sourceOfFunds.provided.card.securityCode is sent.
+await gateway.updateSessionWithSecurityCode(session, cvv);
+
+// 3. Continue exactly as with a typed card.
+final authentication = await gateway.authenticatePayer(session);
+```
+
+Order matters: call `updateSessionWithSecurityCode` **after** the server has put the card in
+the session. A server update that runs afterwards replaces the session's payment details and
+drops the security code, and the server's PAY then fails with no visible cause in the app.
+
+Do not use `updateSessionWithCard` for this: it sends the card number and expiry, which
+replaces the saved card in the session.
+
 Device wallet:
 
 ```dart
@@ -240,6 +267,7 @@ if (await gateway.getAvailableWallet(walletRequest) != DeviceWallet.none) {
 | `bool isInitialized` | Whether `initialize` completed in this Dart isolate. |
 | `initialize(GatewayConfiguration)` | Initializes the native SDK. An equal configuration again is a no-op; a different one throws `alreadyInitialized`. |
 | `updateSessionWithCard(session, card, {additionalFields})` | Stores the card in the gateway session. |
+| `updateSessionWithSecurityCode(session, securityCode, {additionalFields})` | Adds only the security code (CVV) to a session that already holds a card, for a card saved by your server. Sends no other `sourceOfFunds` field. |
 | `authenticatePayer(session, {authenticationTransactionId, options})` | Runs 3-D Secure. Generates a UUID transaction ID when none is given and returns it in the result. |
 | `getAvailableWallet(WalletPaymentRequest)` | Google Pay / Apple Pay / none. Shows no UI. |
 | `payWithDeviceWallet(session, WalletPaymentRequest)` | Shows the wallet sheet and stores the token in the session. |
@@ -271,7 +299,7 @@ Rules that apply to every operation:
 | `GatewayRegion` | `mtf` (test), `europe`, `northAmerica`, `asiaPacific`, `india`, `china`, `saudiArabia`. |
 | `WalletConfiguration` | `googlePayMerchantId` (Android, production), `applePayMerchantIdentifier` (iOS). |
 | `PaymentSession` | Session created by your server. Amount is a decimal string. API version ≥ 61 and identical to the server's. |
-| `CardDetails` | Card entered by the payer. `toString()` masks every field. |
+| `CardDetails` | Card entered by the payer; `securityCode` is required, the gateway refuses a card payment without it. `toString()` masks every field. |
 | `GatewayFields` | Extra gateway fields in dot notation (`billing.address.city`, `customer.email`, `order.item[0].name`), typed setters. `sourceOfFunds.*` is rejected in any spelling. |
 | `AuthenticationOptions` | Extra authenticate-payer fields; `ios:` options (challenge UI, locale, initiate-authentication fields) ignored on Android. |
 | `AuthenticationResult` | `AuthenticationProceed` or `AuthenticationNotProceeded(reason)`, both with `authenticationTransactionId`, `authenticationPerformed`, `challengePerformed`. `sdkTransactionId` and `threeDS2TransactionStatus` are iOS only. |
@@ -335,6 +363,9 @@ around those futures (the example app does this for its event log).
 
 - Card data is sent once, from Dart to the native SDK, and is never stored or logged by the
   plugin. `CardDetails`, `PaymentSession` and `GatewayFields` mask their values in `toString()`.
+- The security code passed to `updateSessionWithSecurityCode` travels as a plain argument and
+  is never held in a plugin object, printed or kept after the call. Keep it short-lived in the
+  app as well: never store it, and never put it in a log line or an error report.
 - Wallet tokens go from the wallet sheet to the gateway inside native code and never reach
   Dart.
 - **Android SDK logging:** Mastercard Gateway Android SDK 2.0.17 logs every HTTP request body

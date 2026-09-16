@@ -324,7 +324,7 @@ class SessionMessage {
 class CardMessage {
   CardMessage({
     required this.number,
-    this.securityCode,
+    required this.securityCode,
     required this.expiryMonth,
     required this.expiryYear,
     this.nameOnCard,
@@ -332,7 +332,8 @@ class CardMessage {
 
   String number;
 
-  String? securityCode;
+  /// Never optional: the gateway refuses a card payment without it.
+  String securityCode;
 
   String expiryMonth;
 
@@ -352,7 +353,7 @@ class CardMessage {
     result as List<Object?>;
     return CardMessage(
       number: result[0]! as String,
-      securityCode: result[1] as String?,
+      securityCode: result[1]! as String,
       expiryMonth: result[2]! as String,
       expiryYear: result[3]! as String,
       nameOnCard: result[4] as String?,
@@ -1494,6 +1495,35 @@ class NbeGatewayHostApi {
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
       <Object?>[session, card, additionalFields],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Adds only `sourceOfFunds.provided.card.securityCode` to a session that already holds a
+  /// card, which is how a payment with a card stored by the merchant server is completed.
+  ///
+  /// The security code travels as a plain parameter rather than inside a message class on
+  /// purpose: generated classes print every field in their `toString`.
+  Future<void> updateSessionWithSecurityCode(
+    SessionMessage session,
+    String securityCode,
+    List<GatewayFieldMessage>? additionalFields,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.updateSessionWithSecurityCode$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[session, securityCode, additionalFields],
     );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 

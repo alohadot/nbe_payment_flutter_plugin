@@ -20,6 +20,15 @@ protocol GatewaySdkAdapter: AnyObject {
     additionalFields: [GatewayFieldMessage]?,
     completion: @escaping (Result<Void, Error>) -> Void)
 
+  /// Stores only the security code in a session that already holds a card. No other
+  /// `sourceOfFunds` field is sent, so the stored card is left untouched. Must not log or
+  /// retain the security code.
+  func updateSessionWithSecurityCode(
+    session: SessionMessage,
+    securityCode: String,
+    additionalFields: [GatewayFieldMessage]?,
+    completion: @escaping (Result<Void, Error>) -> Void)
+
   /// Runs 3-D Secure payer authentication. May present the issuer challenge screen.
   func authenticatePayer(
     request: AuthenticateRequestMessage,

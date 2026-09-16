@@ -55,6 +55,32 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
     additionalFields: [GatewayFieldMessage]?,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
+    updateSession(session: session, completion: completion) {
+      try buildUpdateSessionWithCardPayload(card: card, additionalFields: additionalFields)
+    }
+  }
+
+  func updateSessionWithSecurityCode(
+    session: SessionMessage,
+    securityCode: String,
+    additionalFields: [GatewayFieldMessage]?,
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    updateSession(session: session, completion: completion) {
+      try buildUpdateSessionWithSecurityCodePayload(
+        securityCode: securityCode, additionalFields: additionalFields)
+    }
+  }
+
+  /// Sends one update-session request to the gateway.
+  ///
+  /// `buildPayload` runs only once the SDK state has been checked. The payload holds payer
+  /// data: it is only handed to the SDK, never logged or stored.
+  private func updateSession(
+    session: SessionMessage,
+    completion: @escaping (Result<Void, Error>) -> Void,
+    buildPayload: () throws -> GatewayMap
+  ) {
     guard isInitialized else {
       completion(.failure(notInitializedError()))
       return
@@ -62,7 +88,7 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
 
     let payload: GatewayMap
     do {
-      payload = try buildUpdateSessionWithCardPayload(card: card, additionalFields: additionalFields)
+      payload = try buildPayload()
     } catch {
       completion(.failure(invalidFieldError(error)))
       return
@@ -70,7 +96,6 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
 
     Gateway.loggingEnabled = false
     Gateway.logRecorder = nil
-    // The payload holds card data: it is only handed to the SDK, never logged or stored.
     GatewayAPI.shared.updateSession(session.id, apiVersion: session.apiVersion, payload: payload) {
       result in
       switch result {

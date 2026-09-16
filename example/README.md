@@ -88,6 +88,7 @@ Authorize, Capture, Pay, Retrieve Order, Void and Refund. Its description explai
 | 1. Initialization | Region, merchant and wallet settings, Initialize. |
 | 2. Session | Values from the server. |
 | 3. Card | Card fields, Update session with card. |
+| 3b. Saved card (CVV only) | Sends only the CVV typed above, for a session the server already filled with a saved card. |
 | 4. 3-D Secure | Optional transaction ID, Authenticate payer. |
 | 5. Device wallet | Check available wallet, Pay with device wallet. |
 | Error and concurrency scenarios | Buttons that must end with a specific error code. |
@@ -102,6 +103,7 @@ Card data in the event log is always masked.
 |---|---|---|
 | Initialize | Fill merchant fields → Initialize | `SUCCESS: Initialized` |
 | Card update | Session 1+2 in Postman → copy values → Update session with card | `SUCCESS`; Postman **3. Retrieve Session** shows the card |
+| Saved card (CVV only) | Create a session that already holds a saved card (our backend: `POST /api/v1/payment/mastercard/session` with `card_id`) → paste the session values → type the CVV → Update session with security code | `SUCCESS`; Postman **3. Retrieve Session** still shows the saved card, now with a security code. Skipping this step makes the server's PAY fail. |
 | 3-D Secure | After card update → Authenticate payer | `PROCEED` (frictionless) or the OTP screen, then `PROCEED`. Copy the transaction ID. |
 | Challenge cancel | Authenticate payer → close the challenge screen | `CANCELLED: NOT PROCEEDED (cancelledByUser)` |
 | Server payment | Paste the transaction ID into Postman `authenticationTransactionId` → **4. Authorize** → **5. Capture** → **7. Retrieve Order** | Order `CAPTURED` |

@@ -14,6 +14,7 @@ class FakeHostApi implements NbeGatewayHostApi {
   InitializeRequestMessage? lastInitializeRequest;
   SessionMessage? lastSession;
   CardMessage? lastCard;
+  String? lastSecurityCode;
   List<GatewayFieldMessage>? lastAdditionalFields;
   AuthenticateRequestMessage? lastAuthenticateRequest;
   WalletRequestMessage? lastWalletRequest;
@@ -61,6 +62,19 @@ class FakeHostApi implements NbeGatewayHostApi {
     calls.add('updateSessionWithCard');
     lastSession = session;
     lastCard = card;
+    lastAdditionalFields = additionalFields;
+    await _answer();
+  }
+
+  @override
+  Future<void> updateSessionWithSecurityCode(
+    SessionMessage session,
+    String securityCode,
+    List<GatewayFieldMessage>? additionalFields,
+  ) async {
+    calls.add('updateSessionWithSecurityCode');
+    lastSession = session;
+    lastSecurityCode = securityCode;
     lastAdditionalFields = additionalFields;
     await _answer();
   }

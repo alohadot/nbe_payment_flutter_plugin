@@ -29,7 +29,7 @@ CardDetails _card({
   String number = '5123450000000008',
   String expiryMonth = '01',
   String expiryYear = '39',
-  String? securityCode = '100',
+  String securityCode = '100',
 }) => CardDetails(
   number: number,
   expiryMonth: expiryMonth,
@@ -151,10 +151,6 @@ void main() {
       expect(() => validateCard(_card()), returnsNormally);
     });
 
-    test('accepts a card without security code', () {
-      expect(() => validateCard(_card(securityCode: null)), returnsNormally);
-    });
-
     for (final number in [
       '',
       '5123 4500 0000 0008',
@@ -202,6 +198,32 @@ void main() {
         fail('expected validation to fail');
       } on GatewayException catch (e) {
         expect(e.toString(), isNot(contains('5123450000000008')));
+      }
+    });
+  });
+
+  group('validateSecurityCode', () {
+    for (final securityCode in ['100', '1000']) {
+      test('accepts ${securityCode.length} digits', () {
+        expect(() => validateSecurityCode(securityCode), returnsNormally);
+      });
+    }
+
+    for (final securityCode in ['', '12', '12345', 'abc', '10 0']) {
+      test('rejects "${securityCode.length} character" code', () {
+        expect(
+          () => validateSecurityCode(securityCode),
+          _throwsGatewayError(GatewayErrorCode.invalidArgument),
+        );
+      });
+    }
+
+    test('error messages never contain the security code', () {
+      try {
+        validateSecurityCode('1234567');
+        fail('expected validation to fail');
+      } on GatewayException catch (e) {
+        expect(e.toString(), isNot(contains('1234567')));
       }
     });
   });

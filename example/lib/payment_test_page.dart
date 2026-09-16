@@ -112,7 +112,7 @@ class _PaymentTestPageState extends State<PaymentTestPage>
     number: _cardNumber.text.trim(),
     expiryMonth: _expiryMonth.text.trim(),
     expiryYear: _expiryYear.text.trim(),
-    securityCode: _optional(_securityCode.text),
+    securityCode: _securityCode.text.trim(),
     nameOnCard: _optional(_nameOnCard.text),
   );
 
@@ -157,6 +157,19 @@ class _PaymentTestPageState extends State<PaymentTestPage>
         _log('Card: $_card');
         await _gateway.updateSessionWithCard(_session, _card);
         return const OperationOutcome.success('Session updated with card');
+      });
+
+  // Saved-card flow: the merchant server already put the stored card in the session, so only
+  // the CVV the payer typed is added here. The card fields above are not sent.
+  Future<void> _updateSessionWithSecurityCode() =>
+      _run('Update session with security code', () async {
+        await _gateway.updateSessionWithSecurityCode(
+          _session,
+          _securityCode.text.trim(),
+        );
+        return const OperationOutcome.success(
+          'Session updated with the security code only',
+        );
       });
 
   Future<void> _authenticatePayer() => _run('Authenticate payer', () async {
@@ -224,7 +237,12 @@ class _PaymentTestPageState extends State<PaymentTestPage>
   Future<void> _tryInvalidCard() => _run('Invalid card number', () async {
     await _gateway.updateSessionWithCard(
       _session,
-      const CardDetails(number: '1234', expiryMonth: '01', expiryYear: '39'),
+      const CardDetails(
+        number: '1234',
+        expiryMonth: '01',
+        expiryYear: '39',
+        securityCode: '100',
+      ),
     );
     return const OperationOutcome.success('Unexpected: no error');
   });
@@ -512,6 +530,19 @@ class _PaymentTestPageState extends State<PaymentTestPage>
               FilledButton(
                 onPressed: _updateSessionWithCard,
                 child: const Text('Update session with card'),
+              ),
+            ],
+          ),
+          FormSection(
+            title: '3b. Saved card (CVV only)',
+            description:
+                'For a session the server already filled with a saved card (card_id). '
+                'Sends only the CVV typed above; the card number, expiry and name are '
+                'not sent, so the stored card stays in the session.',
+            children: [
+              FilledButton(
+                onPressed: _updateSessionWithSecurityCode,
+                child: const Text('Update session with security code'),
               ),
             ],
           ),

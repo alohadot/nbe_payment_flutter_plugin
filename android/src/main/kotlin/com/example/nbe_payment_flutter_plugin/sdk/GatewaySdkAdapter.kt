@@ -35,6 +35,18 @@ interface GatewaySdkAdapter {
     )
 
     /**
+     * Stores only [securityCode] (and optional [additionalFields]) in a session that already
+     * holds a card. No other `sourceOfFunds` field is sent, so the stored card is left
+     * untouched. Implementations must not log or retain the security code after the call.
+     */
+    fun updateSessionWithSecurityCode(
+        session: SessionMessage,
+        securityCode: String,
+        additionalFields: List<GatewayFieldMessage>?,
+        callback: (Result<Unit>) -> Unit,
+    )
+
+    /**
      * Runs 3-D Secure payer authentication. May present the issuer challenge screen over the
      * current Activity.
      */

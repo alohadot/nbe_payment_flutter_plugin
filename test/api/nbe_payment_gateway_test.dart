@@ -231,6 +231,10 @@ void main() {
           _throwsGatewayError(GatewayErrorCode.notInitialized),
         );
         await expectLater(
+          gateway.updateSessionWithSecurityCode(_session, '100'),
+          _throwsGatewayError(GatewayErrorCode.notInitialized),
+        );
+        await expectLater(
           gateway.authenticatePayer(_session),
           _throwsGatewayError(GatewayErrorCode.notInitialized),
         );
@@ -266,7 +270,12 @@ void main() {
       await expectLater(
         gateway.updateSessionWithCard(
           _session,
-          const CardDetails(number: '123', expiryMonth: '01', expiryYear: '39'),
+          const CardDetails(
+            number: '123',
+            expiryMonth: '01',
+            expiryYear: '39',
+            securityCode: '100',
+          ),
         ),
         _throwsGatewayError(GatewayErrorCode.invalidArgument),
       );
@@ -288,6 +297,84 @@ void main() {
               .having((e) => e.httpStatusCode, 'httpStatusCode', 400),
         ),
       );
+    });
+  });
+
+  group('updateSessionWithSecurityCode', () {
+    setUp(initialize);
+
+    test('sends session, security code and additional fields', () async {
+      await gateway.updateSessionWithSecurityCode(
+        _session,
+        '100',
+        additionalFields: GatewayFields()..setString('customer.email', 'a@b.c'),
+      );
+
+      expect(hostApi.calls, ['initialize', 'updateSessionWithSecurityCode']);
+      expect(hostApi.lastSession!.id, 'SESSION0002');
+      expect(hostApi.lastSecurityCode, '100');
+      expect(hostApi.lastAdditionalFields!.single.key, 'customer.email');
+    });
+
+    test('never sends card details', () async {
+      await gateway.updateSessionWithSecurityCode(_session, '100');
+
+      expect(hostApi.lastCard, isNull);
+    });
+
+    test('an invalid security code fails without calling native code', () async {
+      await expectLater(
+        gateway.updateSessionWithSecurityCode(_session, '12'),
+        _throwsGatewayError(GatewayErrorCode.invalidArgument),
+      );
+      expect(hostApi.calls, ['initialize']);
+    });
+
+    test('an invalid session fails without calling native code', () async {
+      await expectLater(
+        gateway.updateSessionWithSecurityCode(
+          const PaymentSession(
+            id: 'SESSION0002',
+            orderId: 'ORDER-1',
+            amount: '150.00',
+            currency: 'EGP',
+            apiVersion: '60',
+          ),
+          '100',
+        ),
+        _throwsGatewayError(GatewayErrorCode.invalidApiVersion),
+      );
+      expect(hostApi.calls, ['initialize']);
+    });
+
+    test('native errors keep http status and code', () async {
+      hostApi.nextError = PlatformException(
+        code: errorCodeGatewayRejected,
+        message: 'Rejected',
+        details: <Object?, Object?>{errorDetailsHttpStatusCode: 400},
+      );
+
+      await expectLater(
+        gateway.updateSessionWithSecurityCode(_session, '100'),
+        throwsA(
+          isA<GatewayException>()
+              .having((e) => e.code, 'code', GatewayErrorCode.gatewayRejected)
+              .having((e) => e.httpStatusCode, 'httpStatusCode', 400),
+        ),
+      );
+    });
+
+    test('runs under the one-operation lock', () async {
+      hostApi.pendingCompletion = Completer<void>();
+      final first = gateway.updateSessionWithSecurityCode(_session, '100');
+
+      await expectLater(
+        gateway.authenticatePayer(_session),
+        _throwsGatewayError(GatewayErrorCode.operationInProgress),
+      );
+
+      hostApi.pendingCompletion!.complete();
+      await first;
     });
   });
 

@@ -129,6 +129,37 @@ confirmation before a production one.
 The bundled SDK binaries stay in the repository so consumers need no extra setup beyond
 Jetifier on Android.
 
+## 18. A typed CVV-only update, while `sourceOfFunds` stays reserved
+
+A card saved by the merchant server is put into the session by the server, as a token. The
+gateway still refuses a card payment without a security code, and a saved card never carries
+one, so exactly one field has to be added from the app:
+`sourceOfFunds.provided.card.securityCode`.
+
+Three ways were possible; the third was chosen.
+
+- **Allow `sourceOfFunds.*` in `GatewayFields`.** Rejected: that guard is what keeps card and
+  wallet data out of the free-form escape hatch (decision 5). Opening it for one key would
+  open it for `number` too, in any spelling.
+- **Call `updateSessionWithCard` with a placeholder number and expiry.** Rejected: those fields
+  are sent, so they would overwrite the saved card in the session.
+- **A dedicated typed method**, `updateSessionWithSecurityCode`. It builds its own payload with
+  that one key, so the stored card cannot be touched, and it reuses the existing validation,
+  lock and error mapping.
+
+The security code crosses the channel as a plain method parameter, not inside a message class:
+Pigeon's generated classes print every field in `toString` (decision 3), and a parameter has no
+`toString` to leak.
+
+The same reasoning makes `CardDetails.securityCode` required (it was optional). The gateway
+refuses a card payment without it, so an absent code could only turn into a failed PAY on the
+server, far from the cause. The saved-card case, which was the one legitimate reason to omit
+it, now has its own method.
+
+Not enforced by the plugin: `updateSessionWithSecurityCode` must run *after* the server has put
+the card in the session. The plugin cannot see what the server does with the session, so this
+is stated in the README instead.
+
 ## Rejected
 
 | Idea | Why not |

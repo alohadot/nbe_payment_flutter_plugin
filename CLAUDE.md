@@ -31,16 +31,19 @@ Everything a new session needs is in those files; nothing important lives only i
 
 | Area | State |
 |---|---|
-| Dart layer | Complete, 152 unit tests |
-| Android | Complete: initialize, card update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
+| Dart layer | Complete, 165 unit tests |
+| Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
+| Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
 | Google Pay sheet | Not yet run on a device with a Google account |
 | 3DS challenge (OTP) screen | Not yet triggered: the test card used so far authenticates frictionless |
 | Docs | README, example README, architecture, decisions, SDK notes, release checklist |
 
 Pending, and blocked on someone else: iOS build on a Mac, Google Pay on a real device, a test
-card that forces a challenge, the bank enabling the wallets, company name in `LICENSE`, the Git
-repository URL in the docs, reporting the Android SDK logging leak to the bank.
+card that forces a challenge, a test session that already holds a saved card (`card_id`) to
+verify the CVV-only update end to end, the bank enabling the wallets, company name in
+`LICENSE`, the Git repository URL in the docs, reporting the Android SDK logging leak to the
+bank.
 
 ## Layout
 
@@ -63,7 +66,7 @@ doc/                  architecture, decisions, SDK notes, release checklist
 ```sh
 # Dart
 flutter analyze
-flutter test                     # 152 tests
+flutter test                     # 165 tests
 
 # Regenerate the contract after editing pigeons/payment_api.dart
 dart run pigeon --input pigeons/payment_api.dart
@@ -83,6 +86,15 @@ cd example/ios && pod install && cd .. && flutter build ios --simulator --debug
 
 On this Windows machine, chaining `flutter analyze` and `flutter test` in one shell command has
 hung more than once; run them as separate commands.
+
+The Flutter SDK on `PATH` (3.27.4, Dart 3.6.2) cannot even resolve the dev dependencies: the
+pinned Pigeon 27.3.0 needs Dart 3.7+. Use a newer SDK installed on this machine for the dev
+commands, for example `/c/flutter_src/flutter_windows_3.41.9-stable/flutter/bin/flutter`. The
+package's own constraint stays `^3.6.0`, so host apps on 3.27 are unaffected. Pigeon formats its
+Dart output with the *package's* language version, which reformats the whole generated file;
+after regenerating, run
+`dart format --language-version=latest lib/src/generated/payment_api.g.dart` to keep the diff to
+the real change.
 
 ## Rules for changes
 

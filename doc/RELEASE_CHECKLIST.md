@@ -83,6 +83,7 @@ Use `example/postman/nbe_mtf_payment_flow.postman_collection.json`.
 
 - [ ] Android logcat during a card update (debug **and** release) contains no `okhttp`,
       `sourceOfFunds`, `securityCode`, `Authorization:` lines and no card number
+- [ ] Same logcat check during a security-code-only update (Saved card section of the example)
 - [ ] Xcode console during a card update contains no card data or `Authorization` header
 - [ ] No API password, real card or production credentials in the repository
 - [ ] `CardDetails`, `PaymentSession` printed in the example event log are masked

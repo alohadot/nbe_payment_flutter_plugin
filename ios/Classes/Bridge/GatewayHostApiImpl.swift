@@ -37,6 +37,19 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
     }
   }
 
+  func updateSessionWithSecurityCode(
+    session: SessionMessage,
+    securityCode: String,
+    additionalFields: [GatewayFieldMessage]?,
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    runExclusively(completion) { complete in
+      self.sdkAdapter.updateSessionWithSecurityCode(
+        session: session, securityCode: securityCode, additionalFields: additionalFields,
+        completion: complete)
+    }
+  }
+
   func authenticatePayer(
     request: AuthenticateRequestMessage,
     completion: @escaping (Result<AuthenticationResultMessage, Error>) -> Void

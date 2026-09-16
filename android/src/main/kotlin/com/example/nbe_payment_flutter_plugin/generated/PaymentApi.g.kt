@@ -455,7 +455,8 @@ data class SessionMessage (
  */
 data class CardMessage (
   val number: String,
-  val securityCode: String? = null,
+  /** Never optional: the gateway refuses a card payment without it. */
+  val securityCode: String,
   val expiryMonth: String,
   val expiryYear: String,
   val nameOnCard: String? = null
@@ -464,7 +465,7 @@ data class CardMessage (
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): CardMessage {
       val number = pigeonVar_list[0] as String
-      val securityCode = pigeonVar_list[1] as String?
+      val securityCode = pigeonVar_list[1] as String
       val expiryMonth = pigeonVar_list[2] as String
       val expiryYear = pigeonVar_list[3] as String
       val nameOnCard = pigeonVar_list[4] as String?
@@ -1445,6 +1446,14 @@ private open class PaymentApiPigeonCodec : StandardMessageCodec() {
 interface NbeGatewayHostApi {
   fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit)
   fun updateSessionWithCard(session: SessionMessage, card: CardMessage, additionalFields: List<GatewayFieldMessage>?, callback: (Result<Unit>) -> Unit)
+  /**
+   * Adds only `sourceOfFunds.provided.card.securityCode` to a session that already holds a
+   * card, which is how a payment with a card stored by the merchant server is completed.
+   *
+   * The security code travels as a plain parameter rather than inside a message class on
+   * purpose: generated classes print every field in their `toString`.
+   */
+  fun updateSessionWithSecurityCode(session: SessionMessage, securityCode: String, additionalFields: List<GatewayFieldMessage>?, callback: (Result<Unit>) -> Unit)
   fun authenticatePayer(request: AuthenticateRequestMessage, callback: (Result<AuthenticationResultMessage>) -> Unit)
   fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit)
   fun payWithDeviceWallet(request: WalletRequestMessage, callback: (Result<WalletResultMessage>) -> Unit)
@@ -1486,6 +1495,27 @@ interface NbeGatewayHostApi {
             val cardArg = args[1] as CardMessage
             val additionalFieldsArg = args[2] as List<GatewayFieldMessage>?
             api.updateSessionWithCard(sessionArg, cardArg, additionalFieldsArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PaymentApiPigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PaymentApiPigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nbe_payment_flutter_plugin.NbeGatewayHostApi.updateSessionWithSecurityCode$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionArg = args[0] as SessionMessage
+            val securityCodeArg = args[1] as String
+            val additionalFieldsArg = args[2] as List<GatewayFieldMessage>?
+            api.updateSessionWithSecurityCode(sessionArg, securityCodeArg, additionalFieldsArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(PaymentApiPigeonUtils.wrapError(error))

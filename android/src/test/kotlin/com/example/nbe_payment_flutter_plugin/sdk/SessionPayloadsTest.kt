@@ -49,13 +49,18 @@ internal class SessionPayloadsTest {
     }
 
     @Test
-    fun optionalCardFieldsAreOmittedWhenAbsent() {
+    fun anAbsentNameOnCardIsOmitted() {
         val payload = buildUpdateSessionWithCardPayload(
-            CardMessage(number = "5123450000000008", expiryMonth = "01", expiryYear = "39"),
+            CardMessage(
+                number = "5123450000000008",
+                securityCode = "100",
+                expiryMonth = "01",
+                expiryYear = "39",
+            ),
             null,
         )
 
-        assertFalse(payload.containsKey("sourceOfFunds.provided.card.securityCode"))
+        assertEquals("100", payload["sourceOfFunds.provided.card.securityCode"])
         assertFalse(payload.containsKey("sourceOfFunds.provided.card.nameOnCard"))
     }
 
@@ -91,6 +96,52 @@ internal class SessionPayloadsTest {
     fun additionalFieldWithoutValueIsRejectedWithoutItsValue() {
         val error = assertFailsWith<IllegalArgumentException> {
             buildUpdateSessionWithCardPayload(card, listOf(GatewayFieldMessage(key = "customer.email")))
+        }
+
+        assertEquals("Gateway field \"customer.email\" has no value.", error.message)
+    }
+
+    @Test
+    fun securityCodePayloadCarriesTheSecurityCodeAndNothingElseFromTheCard() {
+        val payload = buildUpdateSessionWithSecurityCodePayload("100", null)
+
+        assertEquals("100", payload["sourceOfFunds.provided.card.securityCode"])
+        assertFalse(payload.containsKey("sourceOfFunds.provided.card.number"))
+        assertFalse(payload.containsKey("sourceOfFunds.provided.card.expiry.month"))
+        assertFalse(payload.containsKey("sourceOfFunds.provided.card.expiry.year"))
+        assertFalse(payload.containsKey("sourceOfFunds.provided.card.nameOnCard"))
+    }
+
+    @Test
+    fun securityCodePayloadKeepsAdditionalFields() {
+        val payload = buildUpdateSessionWithSecurityCodePayload(
+            "100",
+            listOf(GatewayFieldMessage(key = "billing.address.city", stringValue = "Cairo")),
+        )
+
+        assertEquals("Cairo", payload["billing.address.city"])
+        assertEquals("100", payload["sourceOfFunds.provided.card.securityCode"])
+    }
+
+    @Test
+    fun securityCodeCannotBeReplacedByAnAdditionalField() {
+        val payload = buildUpdateSessionWithSecurityCodePayload(
+            "100",
+            listOf(
+                GatewayFieldMessage(
+                    key = "sourceOfFunds.provided.card.securityCode",
+                    stringValue = "999",
+                ),
+            ),
+        )
+
+        assertEquals("100", payload["sourceOfFunds.provided.card.securityCode"])
+    }
+
+    @Test
+    fun securityCodePayloadRejectsAnAdditionalFieldWithoutValueWithoutItsValue() {
+        val error = assertFailsWith<IllegalArgumentException> {
+            buildUpdateSessionWithSecurityCodePayload("100", listOf(GatewayFieldMessage(key = "customer.email")))
         }
 
         assertEquals("Gateway field \"customer.email\" has no value.", error.message)

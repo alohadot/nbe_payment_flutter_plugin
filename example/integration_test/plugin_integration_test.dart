@@ -122,6 +122,30 @@ void main() {
     );
   });
 
+  // The saved-card path: the payload carries only the security code, with no card number.
+  // The session does not exist, so the gateway must reject it; the test proves the path and
+  // the error mapping, not a payment.
+  //
+  // Also used to check SDK logging: after running it, logcat must contain no `securityCode`.
+  testWidgets(
+    'security code update reaches the gateway and maps its rejection',
+    (tester) async {
+      final gateway = NbePaymentGateway();
+      if (!gateway.isInitialized) {
+        await gateway.initialize(_configuration);
+      }
+
+      await expectLater(
+        gateway.updateSessionWithSecurityCode(_unknownSession, '100'),
+        throwsA(
+          isA<GatewayException>()
+              .having((e) => e.code, 'code', GatewayErrorCode.gatewayRejected)
+              .having((e) => e.httpStatusCode, 'httpStatusCode', isNotNull),
+        ),
+      );
+    },
+  );
+
   // Requires network access to the MTF gateway. The session does not exist, so the gateway
   // rejects authentication before any challenge screen. This proves the Activity is available
   // to the SDK and that the failure comes back typed instead of crashing. A real challenge

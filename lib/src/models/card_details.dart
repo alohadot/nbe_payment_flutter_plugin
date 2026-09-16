@@ -13,7 +13,7 @@ class CardDetails {
     required this.number,
     required this.expiryMonth,
     required this.expiryYear,
-    this.securityCode,
+    required this.securityCode,
     this.nameOnCard,
   });
 
@@ -27,7 +27,11 @@ class CardDetails {
   final String expiryYear;
 
   /// CVV / CVC, 3 or 4 digits.
-  final String? securityCode;
+  ///
+  /// Required: the gateway refuses a card payment without it, and a card the payer typed
+  /// always comes with one. For a card already stored in the session by the merchant server,
+  /// use `NbePaymentGateway.updateSessionWithSecurityCode` instead.
+  final String securityCode;
 
   /// Cardholder name as printed on the card.
   final String? nameOnCard;
@@ -37,6 +41,6 @@ class CardDetails {
   String toString() =>
       'CardDetails(number: ${maskAllButLast(number, 4)}, '
       'expiry: ••/••, '
-      'securityCode: ${securityCode == null ? 'none' : '•••'}, '
+      'securityCode: •••, '
       'nameOnCard: ${nameOnCard == null ? 'none' : '•••'})';
 }

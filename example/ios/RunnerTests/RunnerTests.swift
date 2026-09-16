@@ -30,6 +30,14 @@ final class GatewayHostApiImplTests: XCTestCase {
       pendingVoidCompletions.append(completion)
     }
 
+    func updateSessionWithSecurityCode(
+      session: SessionMessage, securityCode: String, additionalFields: [GatewayFieldMessage]?,
+      completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+      calls.append("updateSessionWithSecurityCode")
+      pendingVoidCompletions.append(completion)
+    }
+
     func authenticatePayer(
       request: AuthenticateRequestMessage,
       completion: @escaping (Result<AuthenticationResultMessage, Error>) -> Void
@@ -71,7 +79,8 @@ final class GatewayHostApiImplTests: XCTestCase {
     region: .mtf)
   private let session = SessionMessage(
     id: "SESSION0002", orderId: "ORDER-1", amount: "150.00", currency: "EGP", apiVersion: "100")
-  private let card = CardMessage(number: "5123450000000008", expiryMonth: "01", expiryYear: "39")
+  private let card = CardMessage(
+    number: "5123450000000008", securityCode: "100", expiryMonth: "01", expiryYear: "39")
 
   func testSecondOperationWhileFirstIsRunningFailsWithOperationInProgress() {
     let adapter = ControllableSdkAdapter()
@@ -218,6 +227,29 @@ final class SdkMappingTests: XCTestCase {
     XCTAssertEqual(payload.get("sourceOfFunds.provided.card.expiry.year").stringValue, "39")
     XCTAssertEqual(payload.get("sourceOfFunds.provided.card.nameOnCard").stringValue, "Test User")
     XCTAssertEqual(payload.get("billing.address.city").stringValue, "Cairo")
+  }
+
+  func testSecurityCodePayloadCarriesOnlyTheSecurityCode() throws {
+    let payload = try buildUpdateSessionWithSecurityCodePayload(
+      securityCode: "100",
+      additionalFields: [GatewayFieldMessage(key: "billing.address.city", stringValue: "Cairo")])
+
+    XCTAssertEqual(payload.get("sourceOfFunds.provided.card.securityCode").stringValue, "100")
+    XCTAssertEqual(payload.get("billing.address.city").stringValue, "Cairo")
+    XCTAssertNil(payload.get("sourceOfFunds.provided.card.number").stringValue)
+    XCTAssertNil(payload.get("sourceOfFunds.provided.card.expiry.month").stringValue)
+    XCTAssertNil(payload.get("sourceOfFunds.provided.card.expiry.year").stringValue)
+    XCTAssertNil(payload.get("sourceOfFunds.provided.card.nameOnCard").stringValue)
+  }
+
+  func testSecurityCodeCannotBeReplacedByAnAdditionalField() throws {
+    let payload = try buildUpdateSessionWithSecurityCodePayload(
+      securityCode: "100",
+      additionalFields: [
+        GatewayFieldMessage(key: "sourceOfFunds.provided.card.securityCode", stringValue: "999")
+      ])
+
+    XCTAssertEqual(payload.get("sourceOfFunds.provided.card.securityCode").stringValue, "100")
   }
 
   func testSdkDetailsAreShortenedAndNormalized() {

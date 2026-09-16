@@ -14,12 +14,24 @@ func buildUpdateSessionWithCardPayload(
   payload.set(.string(card.number), at: "sourceOfFunds.provided.card.number")
   payload.set(.string(card.expiryMonth), at: "sourceOfFunds.provided.card.expiry.month")
   payload.set(.string(card.expiryYear), at: "sourceOfFunds.provided.card.expiry.year")
-  if let securityCode = card.securityCode {
-    payload.set(.string(securityCode), at: "sourceOfFunds.provided.card.securityCode")
-  }
+  payload.set(.string(card.securityCode), at: "sourceOfFunds.provided.card.securityCode")
   if let nameOnCard = card.nameOnCard {
     payload.set(.string(nameOnCard), at: "sourceOfFunds.provided.card.nameOnCard")
   }
+  return payload
+}
+
+/// Update-session payload for a card the session already holds (a card saved by the merchant
+/// server): the security code and nothing else, so the stored card is left untouched.
+///
+/// Additional fields are written first and the security code last, so it can never be replaced
+/// by a free-form field (the Dart layer already rejects `sourceOfFunds.*` keys).
+func buildUpdateSessionWithSecurityCodePayload(
+  securityCode: String,
+  additionalFields: [GatewayFieldMessage]?
+) throws -> GatewayMap {
+  var payload = try buildGatewayFieldsPayload(additionalFields) ?? GatewayMap()
+  payload.set(.string(securityCode), at: "sourceOfFunds.provided.card.securityCode")
   return payload
 }
 
