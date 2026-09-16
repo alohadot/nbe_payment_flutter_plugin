@@ -22,6 +22,11 @@ final class ApplePayController: NSObject, PKPaymentAuthorizationControllerDelega
     }
   }
 
+  /// Apple expects the authorization handler to be called within about 30 seconds, and the
+  /// session update has no timeout of its own, so the sheet is failed before Apple's own
+  /// deadline instead of freezing on the spinner.
+  private static let sessionUpdateTimeout: TimeInterval = 20
+
   private var activeController: PKPaymentAuthorizationController?
   private var activePayment: ActivePayment?
 
@@ -33,8 +38,11 @@ final class ApplePayController: NSObject, PKPaymentAuthorizationControllerDelega
       return .success(.none)
     }
     let networks = request.supportedNetworks.map(toPaymentNetwork)
+    // The same capability the payment request asks for, so availability cannot report a wallet
+    // that the sheet would then refuse.
     return .success(
-      PKPaymentAuthorizationController.canMakePayments(usingNetworks: networks) ? .applePay : .none)
+      PKPaymentAuthorizationController.canMakePayments(
+        usingNetworks: networks, capabilities: .capability3DS) ? .applePay : .none)
   }
 
   func pay(
@@ -106,16 +114,30 @@ final class ApplePayController: NSObject, PKPaymentAuthorizationControllerDelega
 
   // MARK: PKPaymentAuthorizationControllerDelegate
 
+  // PassKit does not document a delivery queue for these callbacks, and everything they touch
+  // (the active payment, UIKit) belongs to the main thread.
   func paymentAuthorizationController(
     _ controller: PKPaymentAuthorizationController,
     didAuthorizePayment payment: PKPayment,
+    handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
+  ) {
+    onMainThread {
+      self.authorize(payment: payment, handler: completion)
+    }
+  }
+
+  private func authorize(
+    payment: PKPayment,
     handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
   ) {
     guard let active = activePayment else {
       completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
       return
     }
-    guard let token = String(data: payment.token.paymentData, encoding: .utf8) else {
+    // Empty payment data decodes to an empty string rather than nil, which the gateway would
+    // reject with a confusing error.
+    guard let token = String(data: payment.token.paymentData, encoding: .utf8), !token.isEmpty
+    else {
       active.result = .failure(
         gatewayBridgeError(
           code: errorCodeWalletFailed,
@@ -125,37 +147,78 @@ final class ApplePayController: NSObject, PKPaymentAuthorizationControllerDelega
     }
     let cardDescription = payment.token.paymentMethod.displayName
 
+    var hasAnswered = false
+    let answer: (Result<WalletResultMessage, Error>, PKPaymentAuthorizationStatus) -> Void = {
+      result, status in
+      guard !hasAnswered else { return }
+      hasAnswered = true
+      active.result = result
+      completion(PKPaymentAuthorizationResult(status: status, errors: nil))
+    }
+
     Gateway.loggingEnabled = false
+    Gateway.logRecorder = nil
     // The token is only handed to the SDK; it is never logged or returned to Flutter.
     GatewayAPI.shared.updateSession(
       active.session.id,
       apiVersion: active.session.apiVersion,
       payload: buildApplePayTokenPayload(token: token)
     ) { result in
-      DispatchQueue.main.async {
+      self.onMainThread {
         switch result {
         case .success:
-          active.result = .success(
-            WalletResultMessage(outcome: .completed, wallet: .applePay, cardDescription: cardDescription))
-          completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+          answer(
+            .success(
+              WalletResultMessage(
+                outcome: .completed, wallet: .applePay, cardDescription: cardDescription)),
+            .success)
         case .failure(let error):
-          active.result = .failure(gatewayRequestBridgeError(error))
-          completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
+          answer(.failure(gatewayRequestBridgeError(error)), .failure)
+        }
+      }
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.sessionUpdateTimeout) {
+      answer(
+        .failure(
+          gatewayBridgeError(
+            code: errorCodeNetwork,
+            message: "Storing the Apple Pay token in the session timed out.")),
+        .failure)
+    }
+  }
+
+  func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
+    onMainThread {
+      controller.dismiss {
+        self.onMainThread {
+          // No result means the payer closed the sheet without a successful authorization.
+          let result =
+            self.activePayment?.result
+            ?? .success(WalletResultMessage(outcome: .cancelled, wallet: .applePay))
+          self.finish(with: result)
         }
       }
     }
   }
 
-  func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
-    controller.dismiss { [weak self] in
-      DispatchQueue.main.async {
-        guard let self = self else { return }
-        // No result means the payer closed the sheet without a successful authorization.
-        let result =
-          self.activePayment?.result
-          ?? .success(WalletResultMessage(outcome: .cancelled, wallet: .applePay))
-        self.finish(with: result)
-      }
+  /// Dismisses the sheet and fails the payment, for when the engine goes away.
+  func abortPendingPayment() {
+    guard activePayment != nil else { return }
+    let controller = activeController
+    finish(
+      with: .failure(
+        gatewayBridgeError(
+          code: errorCodeUiUnavailable,
+          message: "The Flutter engine was detached before Apple Pay finished.")))
+    controller?.dismiss(completion: nil)
+  }
+
+  private func onMainThread(_ action: @escaping () -> Void) {
+    if Thread.isMainThread {
+      action()
+    } else {
+      DispatchQueue.main.async(execute: action)
     }
   }
 

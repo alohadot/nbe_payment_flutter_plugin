@@ -66,5 +66,23 @@ void main() {
         expect(maskAllButLast('123', 4), '•••');
       },
     );
+
+    test('masks short values completely instead of revealing most of them', () {
+      // Revealing 4 of 6 characters would expose most of the value.
+      expect(maskAllButLast('S12345', 4), '••••••');
+      expect(maskAllButLast('S1234567', 4), '••••4567');
+    });
+  });
+
+  test('PaymentSession.toString masks a short session id completely', () {
+    const session = PaymentSession(
+      id: 'S1234',
+      orderId: 'ORDER-1',
+      amount: '150.00',
+      currency: 'EGP',
+      apiVersion: '72',
+    );
+
+    expect(session.toString(), isNot(contains('1234')));
   });
 }

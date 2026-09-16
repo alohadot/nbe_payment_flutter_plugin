@@ -8,6 +8,7 @@ import 'sensitive_text_masking.dart';
 /// private API credentials; the app only receives these identifiers.
 @immutable
 class PaymentSession {
+  /// Creates a session from the values returned by the merchant server.
   const PaymentSession({
     required this.id,
     required this.orderId,
@@ -16,6 +17,7 @@ class PaymentSession {
     required this.apiVersion,
   });
 
+  /// Session identifier returned by the gateway when the server created the session.
   final String id;
 
   /// Must match the order ID the server used when updating the session.

@@ -3,6 +3,8 @@ import 'dart:ui' show Color;
 import '../generated/payment_api.g.dart';
 import '../models/challenge_ui_customization.dart';
 
+/// Converts the public challenge customization to the transport message, with colors as
+/// 32-bit ARGB integers.
 ChallengeUiMessage toChallengeUiMessage(
   ChallengeUiCustomization customization,
 ) {

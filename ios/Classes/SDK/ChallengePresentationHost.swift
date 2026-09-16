@@ -14,12 +14,23 @@ import UIKit
 /// Verify on a device whenever the SDK is updated: the SDK's release notes mention changes to
 /// "Navigation Control for Challenge Flow" (2.0.13).
 final class ChallengePresentationHost {
+  /// UIKit does not always call a presentation completion (for example when the presenter is
+  /// mid-transition). Without this guard a dropped completion would leave the operation lock
+  /// held and a touch-blocking overlay on screen for the rest of the process.
+  private static let presentationTimeout: TimeInterval = 5
+
   private var navigationController: UINavigationController?
 
   /// Presents the host and returns it, or returns `nil` when no visible view controller can
-  /// present (for example while the app is in the background).
+  /// present (for example while the app is in the background, or while another presentation is
+  /// still running).
   func present(completion: @escaping (UINavigationController?) -> Void) {
-    guard navigationController == nil, let presenter = Self.topViewController() else {
+    guard navigationController == nil,
+      let presenter = Self.topViewController(),
+      !presenter.isBeingPresented,
+      !presenter.isBeingDismissed,
+      presenter.presentedViewController == nil
+    else {
       completion(nil)
       return
     }
@@ -29,11 +40,29 @@ final class ChallengePresentationHost {
     let navigation = UINavigationController(rootViewController: root)
     navigation.modalPresentationStyle = .overFullScreen
     navigation.view.backgroundColor = .clear
-    navigation.setNavigationBarHidden(true, animated: false)
-    navigationController = navigation
+    // The bar stays visible: the SDK themes it and renders the challenge's cancel control in
+    // it, so hiding it can leave the payer with no way out of the challenge.
+    navigation.navigationBar.isTranslucent = true
+    root.navigationItem.title = nil
 
-    presenter.present(navigation, animated: false) {
-      completion(navigation)
+    var hasAnswered = false
+    let answer: (UINavigationController?) -> Void = { result in
+      guard !hasAnswered else { return }
+      hasAnswered = true
+      completion(result)
+    }
+
+    presenter.present(navigation, animated: false) { [weak self] in
+      self?.navigationController = navigation
+      answer(navigation)
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.presentationTimeout) { [weak self] in
+      guard !hasAnswered else { return }
+      // The presentation never reported back: take the overlay down and fail the operation.
+      navigation.presentingViewController?.dismiss(animated: false)
+      self?.navigationController = nil
+      answer(nil)
     }
   }
 
@@ -49,7 +78,17 @@ final class ChallengePresentationHost {
       completion()
       return
     }
-    presenter.dismiss(animated: true, completion: completion)
+    // Not animated: a 3DS flow can finish while the app is in the background, where an
+    // animated transition — and therefore the reply to Flutter — would be deferred until the
+    // app is visible again.
+    presenter.dismiss(animated: false, completion: completion)
+  }
+
+  /// Takes the overlay down without waiting for an authentication that can no longer finish.
+  func dismissWithoutWaiting() {
+    guard let navigation = navigationController else { return }
+    navigationController = nil
+    navigation.presentingViewController?.dismiss(animated: false)
   }
 
   static func topViewController() -> UIViewController? {

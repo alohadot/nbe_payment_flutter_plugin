@@ -49,6 +49,21 @@ final class GatewayHostApiImplTests: XCTestCase {
     ) {
       calls.append("payWithDeviceWallet")
     }
+
+    var abortCount = 0
+
+    func abortPendingOperations() {
+      abortCount += 1
+    }
+  }
+
+  // The lock is process-wide, so every test starts from a released one.
+  override func setUp() {
+    GatewayOperationLock.resetForTesting()
+  }
+
+  override func tearDown() {
+    GatewayOperationLock.resetForTesting()
   }
 
   private let request = InitializeRequestMessage(
@@ -101,6 +116,44 @@ final class GatewayHostApiImplTests: XCTestCase {
 
     XCTAssertEqual(adapter.calls, ["initialize", "getAvailableWallet"])
     XCTAssertEqual(wallet, .applePay)
+  }
+
+  func testDisposeFailsTheRunningOperationAndReleasesTheLock() {
+    let adapter = ControllableSdkAdapter()
+    let hostApi = GatewayHostApiImpl(sdkAdapter: adapter)
+    var result: Result<Void, Error>?
+
+    hostApi.initialize(request: request) { result = $0 }
+    hostApi.dispose()
+
+    guard case .failure(let error as GatewayBridgeError)? = result else {
+      return XCTFail("expected a bridge error")
+    }
+    XCTAssertEqual(error.code, errorCodeUnknown)
+    XCTAssertEqual(adapter.abortCount, 1)
+    XCTAssertFalse(GatewayOperationLock.isBusy)
+
+    // An answer that arrives after dispose must not produce a second reply.
+    var replies = 0
+    hostApi.initialize(request: request) { _ in replies += 1 }
+    adapter.pendingVoidCompletions.last!(.success(()))
+    adapter.pendingVoidCompletions.last!(.success(()))
+    XCTAssertEqual(replies, 1)
+  }
+
+  func testTheLockIsSharedBetweenHostApiInstances() {
+    // Two Flutter engines in one process share the SDK singletons.
+    let first = GatewayHostApiImpl(sdkAdapter: ControllableSdkAdapter())
+    let second = GatewayHostApiImpl(sdkAdapter: ControllableSdkAdapter())
+    var secondResult: Result<Void, Error>?
+
+    first.initialize(request: request) { _ in }
+    second.initialize(request: request) { secondResult = $0 }
+
+    guard case .failure(let error as GatewayBridgeError)? = secondResult else {
+      return XCTFail("expected a bridge error")
+    }
+    XCTAssertEqual(error.code, errorCodeOperationInProgress)
   }
 
   func testRepliesFromBackgroundQueuesArriveOnTheMainThread() {
@@ -165,6 +218,29 @@ final class SdkMappingTests: XCTestCase {
     XCTAssertEqual(payload.get("sourceOfFunds.provided.card.expiry.year").stringValue, "39")
     XCTAssertEqual(payload.get("sourceOfFunds.provided.card.nameOnCard").stringValue, "Test User")
     XCTAssertEqual(payload.get("billing.address.city").stringValue, "Cairo")
+  }
+
+  func testSdkDetailsAreShortenedAndNormalized() {
+    XCTAssertEqual(sanitizedSdkDetail("  short   detail \n"), "short detail")
+    XCTAssertNil(sanitizedSdkDetail(nil))
+    XCTAssertNil(sanitizedSdkDetail("   "))
+
+    let long = sanitizedSdkDetail(String(repeating: "x", count: 500))!
+    XCTAssertEqual(long.count, 121)
+    XCTAssertTrue(long.hasSuffix("…"))
+  }
+
+  func testRequestsForTheSameMerchantIgnoreAppearanceAndLocale() {
+    let base = InitializeRequestMessage(
+      merchantId: "M", merchantName: "N", merchantUrl: "https://example.com", region: .mtf)
+    var themed = base
+    themed.challengeLocale = "ar"
+    themed.challengeUi = ChallengeUiMessage(regularFontName: "Cairo")
+    var otherMerchant = base
+    otherMerchant.merchantId = "OTHER"
+
+    XCTAssertTrue(base.describesSameMerchant(as: themed))
+    XCTAssertFalse(base.describesSameMerchant(as: otherMerchant))
   }
 
   func testFieldWithoutValueIsRejectedByKey() {

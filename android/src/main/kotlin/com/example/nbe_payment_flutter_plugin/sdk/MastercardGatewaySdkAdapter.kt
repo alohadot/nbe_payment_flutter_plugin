@@ -51,10 +51,14 @@ class MastercardGatewaySdkAdapter(
     override fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit) {
         // The SDK keeps process-wide state that outlives a Flutter hot restart or a second
         // engine, so a repeated initialize must be checked against the SDK, not only Dart.
+        //
+        // Only the merchant identity is compared: challenge appearance and locale are applied
+        // by the SDK at initialization and cannot be changed afterwards, so a new value for
+        // them must not turn a repeated initialize into a hard failure.
         val previousRequest = lastSuccessfulInitializeRequest
         if (GatewaySDK.initialized && previousRequest != null) {
             callback(
-                if (previousRequest == request) {
+                if (previousRequest.describesSameMerchant(request)) {
                     Result.success(Unit)
                 } else {
                     Result.failure(
@@ -275,6 +279,10 @@ class MastercardGatewaySdkAdapter(
     override fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean =
         googlePay.handleActivityResult(requestCode, resultCode, data)
 
+    override fun onActivityDetached() {
+        googlePay.abortPendingOperations()
+    }
+
     private fun runOnMainThread(action: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) action() else mainHandler.post(action)
     }
@@ -283,5 +291,12 @@ class MastercardGatewaySdkAdapter(
         // Mirrors the SDK's own process-wide lifetime.
         @Volatile
         var lastSuccessfulInitializeRequest: InitializeRequestMessage? = null
+
+        fun InitializeRequestMessage.describesSameMerchant(
+            other: InitializeRequestMessage,
+        ): Boolean = merchantId == other.merchantId &&
+            merchantName == other.merchantName &&
+            merchantUrl == other.merchantUrl &&
+            region == other.region
     }
 }

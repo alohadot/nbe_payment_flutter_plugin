@@ -15,6 +15,7 @@ import '../generated/payment_api.g.dart'
 /// visible to the native challenge screen.
 @immutable
 class ChallengeUiCustomization {
+  /// Creates a customization; every part is optional and falls back to the SDK default.
   const ChallengeUiCustomization({
     this.toolbar,
     this.button,
@@ -26,13 +27,29 @@ class ChallengeUiCustomization {
     this.ios,
   });
 
+  /// Title bar of the challenge screen.
   final ChallengeToolbarStyle? toolbar;
+
+  /// Applies to every button on the challenge screen; [AndroidChallengeCustomization]
+  /// can override single buttons on Android.
   final ChallengeButtonStyle? button;
+
+  /// Texts and headings of the challenge screen.
   final ChallengeLabelStyle? label;
+
+  /// Input field the payer types the code into.
   final ChallengeTextBoxStyle? textBox;
+
+  /// Native font family name used for normal text and buttons.
   final String? regularFontName;
+
+  /// Native font family name used for headings and the toolbar title.
   final String? headingFontName;
+
+  /// Customization supported by the Android SDK only.
   final AndroidChallengeCustomization? android;
+
+  /// Customization supported by the iOS SDK only.
   final IosChallengeCustomization? ios;
 
   @override
@@ -60,8 +77,10 @@ class ChallengeUiCustomization {
   );
 }
 
+/// Style of the challenge screen title bar.
 @immutable
 class ChallengeToolbarStyle {
+  /// Creates a toolbar style; unset properties keep the SDK default.
   const ChallengeToolbarStyle({
     this.backgroundColor,
     this.textColor,
@@ -70,10 +89,19 @@ class ChallengeToolbarStyle {
     this.cancelText,
   });
 
+  /// Background of the title bar.
   final Color? backgroundColor;
+
+  /// Color of the title text.
   final Color? textColor;
+
+  /// Title font size. Android only; the iOS theme has no toolbar font.
   final double? fontSize;
+
+  /// Title text, for example `'Secure Payment'`.
   final String? title;
+
+  /// Label of the cancel button in the title bar.
   final String? cancelText;
 
   @override
@@ -90,8 +118,10 @@ class ChallengeToolbarStyle {
       Object.hash(backgroundColor, textColor, fontSize, title, cancelText);
 }
 
+/// Style of the challenge screen buttons.
 @immutable
 class ChallengeButtonStyle {
+  /// Creates a button style; unset properties keep the SDK default.
   const ChallengeButtonStyle({
     this.backgroundColor,
     this.textColor,
@@ -99,9 +129,17 @@ class ChallengeButtonStyle {
     this.cornerRadius,
   });
 
+  /// Button background.
   final Color? backgroundColor;
+
+  /// Button label color.
   final Color? textColor;
+
+  /// Button label size.
   final double? fontSize;
+
+  /// Button corner radius. On iOS this radius is shared with the input field, and the
+  /// button value wins when both are set.
   final double? cornerRadius;
 
   @override
@@ -117,8 +155,10 @@ class ChallengeButtonStyle {
       Object.hash(backgroundColor, textColor, fontSize, cornerRadius);
 }
 
+/// Style of the challenge screen texts.
 @immutable
 class ChallengeLabelStyle {
+  /// Creates a label style; unset properties keep the SDK default.
   const ChallengeLabelStyle({
     this.textColor,
     this.fontSize,
@@ -126,9 +166,16 @@ class ChallengeLabelStyle {
     this.headingFontSize,
   });
 
+  /// Color of normal text.
   final Color? textColor;
+
+  /// Size of normal text.
   final double? fontSize;
+
+  /// Color of headings.
   final Color? headingTextColor;
+
+  /// Size of headings.
   final double? headingFontSize;
 
   @override
@@ -144,8 +191,10 @@ class ChallengeLabelStyle {
       Object.hash(textColor, fontSize, headingTextColor, headingFontSize);
 }
 
+/// Style of the field the payer types the challenge code into.
 @immutable
 class ChallengeTextBoxStyle {
+  /// Creates an input field style; unset properties keep the SDK default.
   const ChallengeTextBoxStyle({
     this.textColor,
     this.fontSize,
@@ -154,10 +203,20 @@ class ChallengeTextBoxStyle {
     this.cornerRadius,
   });
 
+  /// Color of the typed text. On iOS this also sets the general text color when
+  /// [ChallengeLabelStyle.textColor] is not given.
   final Color? textColor;
+
+  /// Size of the typed text.
   final double? fontSize;
+
+  /// Border color of the field.
   final Color? borderColor;
+
+  /// Border width of the field.
   final double? borderWidth;
+
+  /// Corner radius of the field. On iOS this radius is shared with the buttons.
   final double? cornerRadius;
 
   @override
@@ -177,6 +236,7 @@ class ChallengeTextBoxStyle {
 /// Challenge customization supported by the Android SDK only. Ignored on iOS.
 @immutable
 class AndroidChallengeCustomization {
+  /// Creates Android-only customization.
   const AndroidChallengeCustomization({this.buttonStyles = const {}});
 
   /// Per-button overrides of [ChallengeUiCustomization.button].
@@ -196,6 +256,7 @@ class AndroidChallengeCustomization {
 /// Challenge customization supported by the iOS SDK only. Ignored on Android.
 @immutable
 class IosChallengeCustomization {
+  /// Creates iOS-only customization.
   const IosChallengeCustomization({
     this.primaryBackgroundColor,
     this.secondaryBackgroundColor,
@@ -207,16 +268,28 @@ class IosChallengeCustomization {
     this.appearance,
   });
 
+  /// Background of the challenge screen.
   final Color? primaryBackgroundColor;
 
   /// Background of secondary views such as text fields.
   final Color? secondaryBackgroundColor;
 
+  /// Background behind labels.
   final Color? labelBackgroundColor;
+
+  /// Tint color of controls such as the text cursor.
   final Color? tintColor;
+
+  /// Tint color of the navigation bar items.
   final Color? navigationBarTintColor;
+
+  /// Color of the cancel text.
   final Color? cancelTextColor;
+
+  /// Keyboard appearance used by the challenge input.
   final ChallengeKeyboardAppearance? keyboardAppearance;
+
+  /// Light or dark appearance of the challenge screen.
   final ChallengeAppearance? appearance;
 
   @override

@@ -19,6 +19,7 @@ WalletRequestMessage toWalletRequestMessage(
   applePayMerchantIdentifier: configuration.wallet?.applePayMerchantIdentifier,
 );
 
+/// Converts the native wallet result message to the public sealed result.
 WalletPaymentResult toWalletPaymentResult(WalletResultMessage message) =>
     switch (message.outcome) {
       WalletOutcomeMessage.completed => WalletPaymentCompleted(

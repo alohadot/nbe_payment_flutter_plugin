@@ -55,4 +55,10 @@ interface GatewaySdkAdapter {
      * @return `true` if the result belonged to an operation started by this adapter.
      */
     fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean
+
+    /**
+     * Called when the Activity that started a native screen goes away. Implementations must
+     * fail anything that waits for that screen's result.
+     */
+    fun onActivityDetached()
 }

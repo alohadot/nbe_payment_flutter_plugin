@@ -10,6 +10,7 @@ const int minimumGatewayApiVersion = 61;
 // Validation runs in Dart before anything crosses the platform channel, so both platforms
 // reject the same inputs with the same error. Messages never echo card values.
 
+/// Throws when the merchant configuration cannot be used to initialize the SDK.
 void validateConfiguration(GatewayConfiguration configuration) {
   _requireNotBlank(configuration.merchantId, 'merchantId');
   _requireNotBlank(configuration.merchantName, 'merchantName');
@@ -24,6 +25,7 @@ void validateConfiguration(GatewayConfiguration configuration) {
   }
 }
 
+/// Throws when the session cannot be used with the gateway (format or API version).
 void validateSession(PaymentSession session) {
   _requireNotBlank(session.id, 'session.id');
   _requireNotBlank(session.orderId, 'session.orderId');
@@ -54,6 +56,7 @@ void validateSession(PaymentSession session) {
   }
 }
 
+/// Throws when the card fields are malformed. Messages never echo card values.
 void validateCard(CardDetails card) {
   if (!RegExp(r'^\d{12,19}$').hasMatch(card.number)) {
     throw _invalidArgument('Card number must contain 12 to 19 digits only.');
@@ -72,10 +75,26 @@ void validateCard(CardDetails card) {
   }
 }
 
+/// Throws when the authentication transaction identifier is blank.
 void validateAuthenticationTransactionId(String authenticationTransactionId) {
   _requireNotBlank(authenticationTransactionId, 'authenticationTransactionId');
 }
 
+/// Throws when the session amount cannot be charged through a wallet sheet.
+///
+/// Google Pay and Apple Pay reject a zero total, and their own errors point at the merchant
+/// configuration instead of the amount, so it is checked here. A card session may legitimately
+/// carry a zero amount (for example a card verification), so [validateSession] allows it.
+void validateWalletChargeableSession(PaymentSession session) {
+  final amount = double.tryParse(session.amount);
+  if (amount == null || amount <= 0) {
+    throw _invalidArgument(
+      'session.amount must be greater than zero for a wallet payment.',
+    );
+  }
+}
+
+/// Throws when the wallet request cannot be shown to the payer.
 void validateWalletRequest(WalletPaymentRequest request) {
   _requireNotBlank(request.merchantDisplayName, 'merchantDisplayName');
   if (!RegExp(r'^[A-Z]{2}$').hasMatch(request.countryCode)) {

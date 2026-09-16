@@ -40,7 +40,10 @@ enum GatewayErrorCode {
   /// No visible screen was available to present the 3DS challenge or the wallet sheet.
   uiUnavailable,
 
-  /// The device wallet is not available on this device.
+  /// The device wallet cannot be used on this device, although it is configured.
+  ///
+  /// Reported when a wallet payment is started on a device that cannot pay. Use
+  /// `getAvailableWallet` beforehand to avoid it.
   walletUnavailable,
 
   /// The wallet configuration was rejected (e.g. an invalid merchant identifier).
@@ -55,6 +58,7 @@ enum GatewayErrorCode {
 
 /// A technical failure while talking to the payment gateway.
 class GatewayException implements Exception {
+  /// Creates a failure with a stable [code] and a human-readable [message].
   const GatewayException({
     required this.code,
     required this.message,
@@ -62,12 +66,14 @@ class GatewayException implements Exception {
     this.nativeDetails,
   });
 
+  /// What went wrong. Branch on this, never on [message].
   final GatewayErrorCode code;
 
   /// Human-readable description for logs and developers. Never contains card data.
   final String message;
 
-  /// Set only when [code] is [GatewayErrorCode.gatewayRejected].
+  /// HTTP status of the gateway response, when the failure carried one. Set for
+  /// [GatewayErrorCode.gatewayRejected]; `null` for every other code today.
   final int? httpStatusCode;
 
   /// Sanitized native diagnostic information, for debugging only.

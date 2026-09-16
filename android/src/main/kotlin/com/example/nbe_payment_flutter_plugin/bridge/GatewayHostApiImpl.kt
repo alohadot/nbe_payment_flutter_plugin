@@ -11,13 +11,14 @@ import com.example.nbe_payment_flutter_plugin.generated.SessionMessage
 import com.example.nbe_payment_flutter_plugin.generated.WalletRequestMessage
 import com.example.nbe_payment_flutter_plugin.generated.WalletResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeOperationInProgress
+import com.example.nbe_payment_flutter_plugin.generated.errorCodeUnknown
 import com.example.nbe_payment_flutter_plugin.sdk.GatewaySdkAdapter
 
 /**
  * Implements the Pigeon host API on Android.
  *
  * Responsibilities kept here, and nothing SDK-specific:
- * - allow one gateway operation at a time;
+ * - allow one gateway operation at a time (through the process-wide [GatewayOperationLock]);
  * - answer Flutter exactly once per call;
  * - never let a raw exception reach the channel (Pigeon would attach its stack trace).
  *
@@ -25,8 +26,6 @@ import com.example.nbe_payment_flutter_plugin.sdk.GatewaySdkAdapter
  * thread, so the state below needs no synchronization.
  */
 class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGatewayHostApi {
-
-    private var isOperationInProgress = false
 
     override fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit) {
         runExclusively(callback) { complete -> sdkAdapter.initialize(request, complete) }
@@ -66,11 +65,24 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
         runExclusively(callback) { complete -> sdkAdapter.payWithDeviceWallet(request, complete) }
     }
 
+    /**
+     * Called when the Flutter engine detaches: fails a running operation so the lock is not
+     * held by a call whose reply can no longer be delivered.
+     */
+    fun dispose() {
+        GatewayOperationLock.abortRunningOperation(
+            gatewayBridgeError(
+                code = errorCodeUnknown,
+                message = "The Flutter engine was detached before the operation finished.",
+            ),
+        )
+    }
+
     private fun <T> runExclusively(
         callback: (Result<T>) -> Unit,
         operation: (complete: (Result<T>) -> Unit) -> Unit,
     ) {
-        if (isOperationInProgress) {
+        if (GatewayOperationLock.isBusy) {
             callback(
                 Result.failure(
                     gatewayBridgeError(
@@ -82,31 +94,42 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
             return
         }
 
-        isOperationInProgress = true
-        runOnce({ result ->
-            isOperationInProgress = false
+        lateinit var complete: (Result<T>) -> Unit
+        GatewayOperationLock.acquire { error -> complete(Result.failure(error)) }
+        complete = createSingleReply { result ->
+            GatewayOperationLock.release()
             callback(result)
-        }, operation)
+        }
+
+        runCatchingExceptions(complete, operation)
     }
 
     /** Replies to Flutter exactly once, converting thrown exceptions into channel errors. */
     private fun <T> runOnce(
         callback: (Result<T>) -> Unit,
         operation: (complete: (Result<T>) -> Unit) -> Unit,
-    ) {
-        var isCompleted = false
-        val complete: (Result<T>) -> Unit = { result ->
-            // An SDK that reports twice must not produce a second reply to Flutter.
-            if (!isCompleted) {
-                isCompleted = true
-                callback(result)
-            }
-        }
+    ) = runCatchingExceptions(createSingleReply(callback), operation)
 
+    private fun <T> runCatchingExceptions(
+        complete: (Result<T>) -> Unit,
+        operation: (complete: (Result<T>) -> Unit) -> Unit,
+    ) {
         try {
             operation(complete)
         } catch (error: Exception) {
             complete(Result.failure(unexpectedBridgeError(error)))
+        }
+    }
+
+    // An SDK that reports twice, or an abort racing the SDK's own answer, must not produce a
+    // second reply to Flutter.
+    private fun <T> createSingleReply(callback: (Result<T>) -> Unit): (Result<T>) -> Unit {
+        var isCompleted = false
+        return { result ->
+            if (!isCompleted) {
+                isCompleted = true
+                callback(result)
+            }
         }
     }
 }

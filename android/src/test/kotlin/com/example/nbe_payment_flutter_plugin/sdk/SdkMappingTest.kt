@@ -1,5 +1,6 @@
 package com.example.nbe_payment_flutter_plugin.sdk
 
+import com.example.nbe_payment_flutter_plugin.bridge.sanitizedSdkDetail
 import com.example.nbe_payment_flutter_plugin.generated.ButtonStyleMessage
 import com.example.nbe_payment_flutter_plugin.generated.ChallengeButtonType
 import com.example.nbe_payment_flutter_plugin.generated.GatewayRegion
@@ -31,6 +32,17 @@ internal class SdkMappingTest {
         val mapped = ChallengeButtonType.values().map(::toSdkButtonType)
 
         assertEquals(ButtonType.values().toSet(), mapped.toSet())
+    }
+
+    @Test
+    fun sdkDetailsAreShortenedAndNormalized() {
+        assertEquals("short detail", sanitizedSdkDetail("  short   detail \n"))
+        assertNull(sanitizedSdkDetail(null))
+        assertNull(sanitizedSdkDetail("   "))
+
+        val long = sanitizedSdkDetail("x".repeat(500))!!
+        assertEquals(121, long.length)
+        assertTrue(long.endsWith("…"))
     }
 
     @Test

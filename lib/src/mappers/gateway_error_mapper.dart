@@ -26,19 +26,25 @@ const Map<String, GatewayErrorCode> gatewayErrorCodesByChannelCode = {
   errorCodeUnknown: GatewayErrorCode.unknown,
 };
 
+/// Converts a channel error into the public exception, dropping details of codes this
+/// version does not know.
 GatewayException toGatewayException(PlatformException error) {
   final code = gatewayErrorCodesByChannelCode[error.code];
   final details = error.details;
-  final detailsMap = details is Map ? details : const {};
+  final detailsMap = details is Map ? details : const <Object?, Object?>{};
   final httpStatusCode = detailsMap[errorDetailsHttpStatusCode];
   final nativeDetails = detailsMap[errorDetailsNative];
 
   if (code == null) {
-    // Not produced by our native adapters, e.g. Pigeon's "channel-error" when the native
-    // side is not registered, or a code added by a newer native implementation.
+    // Not produced by our native adapters, e.g. Pigeon's "channel-error" when the native side
+    // is not registered, or a code added by a newer native implementation. Neither the message
+    // nor the details can be trusted here: for an exception that escaped the native bridge,
+    // Pigeon fills them with the raw exception text and a stack trace, which may echo request
+    // values. Only the code name is kept.
     return GatewayException(
       code: GatewayErrorCode.unknown,
-      message: error.message ?? 'Unrecognized platform error.',
+      message: 'Unrecognized platform error.',
+      httpStatusCode: httpStatusCode is int ? httpStatusCode : null,
       nativeDetails: 'Unrecognized channel error code: ${error.code}',
     );
   }

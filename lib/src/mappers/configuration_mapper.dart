@@ -4,6 +4,7 @@ import 'challenge_ui_mapper.dart';
 
 // Wallet settings are not part of the initialize message: the Dart layer keeps the
 // configuration and attaches them to each wallet request instead.
+/// Converts the public configuration to the initialize message.
 InitializeRequestMessage toInitializeRequestMessage(
   GatewayConfiguration configuration,
 ) {

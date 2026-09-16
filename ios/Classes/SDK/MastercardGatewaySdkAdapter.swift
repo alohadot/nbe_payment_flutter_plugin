@@ -1,5 +1,6 @@
 import Foundation
 import Gateway
+import UIKit
 
 /// `GatewaySdkAdapter` backed by the Mastercard Gateway iOS SDK.
 final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
@@ -16,9 +17,12 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
     request: InitializeRequestMessage,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
+    // Only the merchant identity is compared: challenge appearance and locale are applied by
+    // the SDK at initialization and cannot be changed afterwards, so a new value for them must
+    // not turn a repeated initialize into a hard failure.
     if let previousRequest = Self.lastSuccessfulInitializeRequest {
       completion(
-        previousRequest == request
+        previousRequest.describesSameMerchant(as: request)
           ? .success(())
           : .failure(
             gatewayBridgeError(
@@ -28,7 +32,10 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
     }
 
     // The SDK can print HTTP traffic; it must stay off so card data never reaches the console.
+    // Both switches are process-wide and writable by anything in the app, so they are set
+    // again before every call below.
     Gateway.loggingEnabled = false
+    Gateway.logRecorder = nil
 
     // The iOS SDK initializes synchronously and reports no failure; problems surface later as
     // `AuthenticationError.notInitialized` or gateway errors.
@@ -62,6 +69,7 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
     }
 
     Gateway.loggingEnabled = false
+    Gateway.logRecorder = nil
     // The payload holds card data: it is only handed to the SDK, never logged or stored.
     GatewayAPI.shared.updateSession(session.id, apiVersion: session.apiVersion, payload: payload) {
       result in
@@ -122,6 +130,7 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
       }
 
       Gateway.loggingEnabled = false
+      Gateway.logRecorder = nil
       AuthenticationHandler.shared.authenticate(authenticationRequest) { response in
         // The SDK may complete on a background queue; UI work and the reply need the main one.
         DispatchQueue.main.async {
@@ -151,6 +160,11 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
     applePay.pay(request: request, completion: completion)
   }
 
+  func abortPendingOperations() {
+    challengeHost.dismissWithoutWaiting()
+    applePay.abortPendingPayment()
+  }
+
   private func notInitializedError() -> GatewayBridgeError {
     return gatewayBridgeError(code: errorCodeNotInitialized, message: "The Gateway SDK is not initialized.")
   }
@@ -165,5 +179,14 @@ final class MastercardGatewaySdkAdapter: GatewaySdkAdapter {
       code: errorCodeInvalidArgument,
       message: "Invalid gateway field.",
       nativeDetails: String(describing: type(of: error)))
+  }
+}
+
+extension InitializeRequestMessage {
+  /// Whether both requests initialize the SDK for the same merchant. Challenge appearance and
+  /// locale are ignored: the SDK applies them once, at initialization.
+  func describesSameMerchant(as other: InitializeRequestMessage) -> Bool {
+    return merchantId == other.merchantId && merchantName == other.merchantName
+      && merchantUrl == other.merchantUrl && region == other.region
   }
 }

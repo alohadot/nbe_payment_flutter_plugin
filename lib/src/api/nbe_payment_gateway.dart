@@ -55,20 +55,38 @@ class NbePaymentGateway {
   final String Function() _generateTransactionId;
 
   GatewayConfiguration? _configuration;
+
+  /// Set while an `initialize` call is running, so concurrent callers can await the same one.
+  Future<void>? _initialization;
+  InitializeRequestMessage? _initializingRequest;
+
   bool _isOperationInProgress = false;
 
+  /// Whether [initialize] completed in this Dart isolate.
+  ///
+  /// The native SDKs stay initialized for the lifetime of the app process, so this can be
+  /// `false` while the native side is still initialized (for example after a hot restart).
   bool get isInitialized => _configuration != null;
 
   /// Initializes the native SDK.
   ///
-  /// Calling it again with an equal configuration completes immediately. Calling it with a
-  /// different configuration throws [GatewayErrorCode.alreadyInitialized].
+  /// Only the merchant identity (merchant, region) can be set once per app process. Calling
+  /// this again for the same merchant keeps the new configuration and completes without
+  /// another native call, so an app can initialize early and add wallet identifiers later.
+  /// Calling it while the same initialization is still running awaits that one. Calling it for
+  /// a different merchant or region throws [GatewayErrorCode.alreadyInitialized].
+  ///
+  /// The challenge appearance and language are applied by the native SDKs at initialization
+  /// and cannot be changed afterwards: a new value is kept for later calls but the running SDK
+  /// keeps the first one. On iOS, `AuthenticationOptions.ios` can override them per call.
   Future<void> initialize(GatewayConfiguration configuration) async {
     validateConfiguration(configuration);
+    final request = toInitializeRequestMessage(configuration);
 
     final currentConfiguration = _configuration;
     if (currentConfiguration != null) {
-      if (currentConfiguration == configuration) {
+      if (_describesSameMerchant(currentConfiguration, configuration)) {
+        _configuration = configuration;
         return;
       }
       throw const GatewayException(
@@ -78,9 +96,56 @@ class NbePaymentGateway {
       );
     }
 
-    await _runExclusively(
-      () => _hostApi.initialize(toInitializeRequestMessage(configuration)),
-    );
+    final runningInitialization = _initialization;
+    if (runningInitialization != null) {
+      final initializingRequest = _initializingRequest;
+      if (initializingRequest != null &&
+          _describesSameMerchantRequest(initializingRequest, request)) {
+        return runningInitialization;
+      }
+      throw const GatewayException(
+        code: GatewayErrorCode.alreadyInitialized,
+        message:
+            'The gateway is being initialized with a different configuration.',
+      );
+    }
+
+    final initialization = _initializeNative(request, configuration);
+    _initialization = initialization;
+    _initializingRequest = request;
+    try {
+      await initialization;
+    } finally {
+      _initialization = null;
+      _initializingRequest = null;
+    }
+  }
+
+  // Challenge appearance, locale and wallet settings are deliberately not compared: the native
+  // SDKs apply the first two once at initialization, and never see the third.
+  static bool _describesSameMerchant(
+    GatewayConfiguration a,
+    GatewayConfiguration b,
+  ) =>
+      a.merchantId == b.merchantId &&
+      a.merchantName == b.merchantName &&
+      a.merchantUrl == b.merchantUrl &&
+      a.region == b.region;
+
+  static bool _describesSameMerchantRequest(
+    InitializeRequestMessage a,
+    InitializeRequestMessage b,
+  ) =>
+      a.merchantId == b.merchantId &&
+      a.merchantName == b.merchantName &&
+      a.merchantUrl == b.merchantUrl &&
+      a.region == b.region;
+
+  Future<void> _initializeNative(
+    InitializeRequestMessage request,
+    GatewayConfiguration configuration,
+  ) async {
+    await _runExclusively(() => _hostApi.initialize(request));
     _configuration = configuration;
   }
 
@@ -158,6 +223,7 @@ class NbePaymentGateway {
     final configuration = _requireInitialized();
     validateSession(session);
     validateWalletRequest(request);
+    validateWalletChargeableSession(session);
 
     final message = await _runExclusively(
       () => _hostApi.payWithDeviceWallet(

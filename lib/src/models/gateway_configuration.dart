@@ -5,8 +5,11 @@ import 'package:flutter/foundation.dart' show immutable;
 import '../generated/payment_api.g.dart' show GatewayRegion;
 import 'challenge_ui_customization.dart';
 
+/// Settings the native SDK is initialized with, once per app process.
 @immutable
 class GatewayConfiguration {
+  /// Creates a configuration. [merchantId] and [region] must match the merchant the sessions
+  /// are created for.
   const GatewayConfiguration({
     required this.merchantId,
     required this.merchantName,
@@ -17,6 +20,7 @@ class GatewayConfiguration {
     this.wallet,
   });
 
+  /// Gateway merchant ID, e.g. `TESTMERCHANT01`.
   final String merchantId;
 
   /// Used by the Android SDK only; ignored on iOS.
@@ -25,6 +29,8 @@ class GatewayConfiguration {
   /// Used by the Android SDK only; ignored on iOS.
   final String merchantUrl;
 
+  /// Gateway data center of the merchant account. `GatewayRegion.mtf` is the test
+  /// environment.
   final GatewayRegion region;
 
   /// Language of the 3DS challenge screen. Used on iOS only; Android always follows the
@@ -65,8 +71,10 @@ class GatewayConfiguration {
   );
 }
 
+/// Merchant identifiers required by the device wallets.
 @immutable
 class WalletConfiguration {
+  /// Creates wallet settings; each identifier is used by its own platform.
   const WalletConfiguration({
     this.googlePayMerchantId,
     this.applePayMerchantIdentifier,

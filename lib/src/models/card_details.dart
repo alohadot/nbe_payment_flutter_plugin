@@ -8,6 +8,7 @@ import 'sensitive_text_masking.dart';
 /// short-lived in the app as well.
 @immutable
 class CardDetails {
+  /// Creates card details from what the payer typed.
   const CardDetails({
     required this.number,
     required this.expiryMonth,
@@ -28,6 +29,7 @@ class CardDetails {
   /// CVV / CVC, 3 or 4 digits.
   final String? securityCode;
 
+  /// Cardholder name as printed on the card.
   final String? nameOnCard;
 
   // Every field is masked: this object must be safe to print by accident.

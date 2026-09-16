@@ -1,5 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.example.nbe_payment_flutter_plugin">
+<!-- The library namespace is declared in build.gradle.kts, not here. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- The Gateway SDK manifests do not declare it, and Flutter templates only add it to
          debug/profile builds, so release apps would fail to reach the gateway without it. -->

@@ -246,6 +246,29 @@ void main() {
     });
   });
 
+  group('validateWalletChargeableSession', () {
+    test('accepts a positive amount', () {
+      expect(
+        () => validateWalletChargeableSession(_session(amount: '0.01')),
+        returnsNormally,
+      );
+    });
+
+    for (final amount in ['0', '0.0', '0.00']) {
+      test('rejects zero amount "$amount"', () {
+        expect(
+          () => validateWalletChargeableSession(_session(amount: amount)),
+          _throwsGatewayError(GatewayErrorCode.invalidArgument),
+        );
+      });
+    }
+
+    test('a zero amount is still allowed for a card session', () {
+      // Card verification sessions can legitimately carry a zero amount.
+      expect(() => validateSession(_session(amount: '0')), returnsNormally);
+    });
+  });
+
   test('validateAuthenticationTransactionId rejects blank ids', () {
     expect(
       () => validateAuthenticationTransactionId(' '),

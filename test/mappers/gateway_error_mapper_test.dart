@@ -69,21 +69,27 @@ void main() {
     expect(exception.message, 'network');
   });
 
-  test('unrecognized codes become unknown without exposing their details', () {
-    final exception = toGatewayException(
-      PlatformException(
-        code: 'channel-error',
-        message: 'Unable to establish connection on channel.',
-        details: 'Cause: ..., Stacktrace: ...',
-      ),
-    );
+  test(
+    'unrecognized codes become unknown without exposing message or details',
+    () {
+      // For an exception that escaped the native bridge, Pigeon fills message and details with
+      // the raw exception text and a stack trace, which may echo request values.
+      final exception = toGatewayException(
+        PlatformException(
+          code: 'NumberFormatException',
+          message: 'For input string: "5123450000000008"',
+          details: 'Cause: ..., Stacktrace: ...',
+        ),
+      );
 
-    expect(exception.code, GatewayErrorCode.unknown);
-    expect(exception.message, 'Unable to establish connection on channel.');
-    expect(
-      exception.nativeDetails,
-      'Unrecognized channel error code: channel-error',
-    );
-    expect(exception.toString(), isNot(contains('Stacktrace')));
-  });
+      expect(exception.code, GatewayErrorCode.unknown);
+      expect(exception.message, 'Unrecognized platform error.');
+      expect(
+        exception.nativeDetails,
+        'Unrecognized channel error code: NumberFormatException',
+      );
+      expect(exception.toString(), isNot(contains('5123450000000008')));
+      expect(exception.toString(), isNot(contains('Stacktrace')));
+    },
+  );
 }

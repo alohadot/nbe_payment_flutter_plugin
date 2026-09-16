@@ -1,6 +1,7 @@
-package com.example.nbe_payment_flutter_plugin.sdk
+﻿package com.example.nbe_payment_flutter_plugin.sdk
 
 import com.example.nbe_payment_flutter_plugin.bridge.gatewayBridgeError
+import com.example.nbe_payment_flutter_plugin.bridge.sanitizedSdkDetail
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationOutcomeMessage
 import com.example.nbe_payment_flutter_plugin.generated.AuthenticationResultMessage
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeInvalidChallengeCompletionUrl
@@ -18,8 +19,9 @@ import com.mastercard.gateway.android.sdk.AuthenticationResponse
  * cancellation) become result messages, while integration and technical failures become
  * channel errors.
  *
- * Authentication requests carry no card data (the card is already in the session), so SDK
- * error texts are kept as native details to help diagnose gateway configuration problems.
+ * Authentication requests carry no card data (the card is already in the session), so SDK error
+ * texts help diagnose gateway configuration problems. They are unbounded third-party text
+ * (from the SDK, the 3DS server or the issuer), so they are shortened before being sent.
  */
 internal fun toAuthenticationResult(
     response: AuthenticationResponse,
@@ -61,28 +63,29 @@ internal fun toAuthenticationResult(
             gatewayBridgeError(
                 code = errorCodeNotInitialized,
                 message = "The Gateway SDK is not initialized.",
-                nativeDetails = error.error,
+                nativeDetails = sanitizedSdkDetail(error.error),
             ),
         )
         is AuthenticationError.MissingParameter -> Result.failure(
             gatewayBridgeError(
                 code = errorCodeMissingSessionParameter,
                 message = "The session is missing fields required for authentication.",
-                nativeDetails = error.error,
+                nativeDetails = sanitizedSdkDetail(error.error),
             ),
         )
         is AuthenticationError.InvalidChallengeCompletionURL -> Result.failure(
             gatewayBridgeError(
                 code = errorCodeInvalidChallengeCompletionUrl,
                 message = "The 3DS challenge completion URL is invalid.",
-                nativeDetails = error.error,
+                // Everything after "?" is dropped: a challenge URL's query can carry tokens.
+                nativeDetails = sanitizedSdkDetail(error.error.substringBefore('?')),
             ),
         )
         is AuthenticationError.Other -> Result.failure(
             gatewayBridgeError(
                 code = errorCodeUnknown,
                 message = "Payer authentication failed.",
-                nativeDetails = "AuthenticationError.Other: ${error.error}",
+                nativeDetails = sanitizedSdkDetail("AuthenticationError.Other: ${error.error}"),
             ),
         )
 

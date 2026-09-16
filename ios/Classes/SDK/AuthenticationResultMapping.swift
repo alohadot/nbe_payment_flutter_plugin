@@ -5,7 +5,8 @@ import Gateway
 ///
 /// Payment outcomes (declines, cancellation) become result messages; integration and technical
 /// failures become channel errors. Authentication requests carry no card data, so SDK error
-/// texts are kept as native details to help diagnose gateway configuration problems.
+/// texts help diagnose gateway configuration problems. They are unbounded third-party text, so
+/// they are shortened before being sent.
 func toAuthenticationResult(
   _ response: AuthenticationResponse,
   authenticationTransactionId: String
@@ -57,25 +58,28 @@ func toAuthenticationResult(
       gatewayBridgeError(
         code: errorCodeMissingSessionParameter,
         message: "The session is missing fields required for authentication.",
-        nativeDetails: parameter))
+        nativeDetails: sanitizedSdkDetail(parameter)))
   case .invalidChallengeCompletionURL(let detail):
     return .failure(
       gatewayBridgeError(
         code: errorCodeInvalidChallengeCompletionUrl,
         message: "The 3DS challenge completion URL is invalid.",
-        nativeDetails: detail))
+        // Everything after "?" is dropped: a challenge URL's query can carry tokens.
+        nativeDetails: sanitizedSdkDetail(
+          detail.components(separatedBy: "?").first)))
   case .other(let detail):
     return .failure(
       gatewayBridgeError(
         code: errorCodeUnknown,
         message: "Payer authentication failed.",
-        nativeDetails: "AuthenticationError.other: \(detail)"))
+        nativeDetails: sanitizedSdkDetail("AuthenticationError.other: \(detail)")))
   @unknown default:
-    // A case added by a newer SDK version.
+    // A case added by a newer SDK version: its associated values are unknown, so only the
+    // fact that it is unrecognized is reported.
     return .failure(
       gatewayBridgeError(
         code: errorCodeUnknown,
         message: "Payer authentication failed.",
-        nativeDetails: "AuthenticationError: \(authenticationError)"))
+        nativeDetails: "AuthenticationError (unrecognized case)"))
   }
 }

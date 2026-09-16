@@ -3,7 +3,7 @@ import Foundation
 /// Implements the Pigeon host API on iOS.
 ///
 /// Responsibilities kept here, and nothing SDK-specific:
-/// - allow one gateway operation at a time;
+/// - allow one gateway operation at a time (through the process-wide `GatewayOperationLock`);
 /// - answer Flutter exactly once per call, always on the main thread (the iOS Gateway SDK
 ///   completes on background queues).
 ///
@@ -11,7 +11,6 @@ import Foundation
 /// thread, so the state below needs no locking.
 final class GatewayHostApiImpl: NbeGatewayHostApi {
   private let sdkAdapter: GatewaySdkAdapter
-  private var isOperationInProgress = false
 
   init(sdkAdapter: GatewaySdkAdapter) {
     self.sdkAdapter = sdkAdapter
@@ -67,11 +66,21 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
     }
   }
 
+  /// Called when the Flutter engine detaches: takes down native screens and fails a running
+  /// operation, so the lock is not held by a call whose reply can no longer be delivered.
+  func dispose() {
+    sdkAdapter.abortPendingOperations()
+    GatewayOperationLock.abortRunningOperation(
+      gatewayBridgeError(
+        code: errorCodeUnknown,
+        message: "The Flutter engine was detached before the operation finished."))
+  }
+
   private func runExclusively<T>(
     _ completion: @escaping (Result<T, Error>) -> Void,
-    _ operation: (@escaping (Result<T, Error>) -> Void) -> Void
+    _ operation: ((Result<T, Error>) -> Void) -> Void
   ) {
-    if isOperationInProgress {
+    if GatewayOperationLock.isBusy {
       completion(
         .failure(
           gatewayBridgeError(
@@ -80,23 +89,30 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
       return
     }
 
-    isOperationInProgress = true
-    runOnce(
-      { [weak self] result in
-        self?.isOperationInProgress = false
-        completion(result)
-      }, operation)
+    let complete = singleReply { (result: Result<T, Error>) in
+      GatewayOperationLock.release()
+      completion(result)
+    }
+    GatewayOperationLock.acquire { error in complete(.failure(error)) }
+    operation(complete)
   }
 
   /// Replies exactly once, on the main thread.
   private func runOnce<T>(
     _ completion: @escaping (Result<T, Error>) -> Void,
-    _ operation: (@escaping (Result<T, Error>) -> Void) -> Void
+    _ operation: ((Result<T, Error>) -> Void) -> Void
   ) {
+    operation(singleReply(completion))
+  }
+
+  private func singleReply<T>(
+    _ completion: @escaping (Result<T, Error>) -> Void
+  ) -> (Result<T, Error>) -> Void {
     var isCompleted = false
-    operation { result in
+    return { result in
       let deliver = {
-        // An SDK that reports twice must not produce a second reply to Flutter.
+        // An SDK that reports twice, or an abort racing the SDK's own answer, must not produce
+        // a second reply to Flutter.
         guard !isCompleted else { return }
         isCompleted = true
         completion(result)

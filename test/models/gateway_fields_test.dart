@@ -62,8 +62,41 @@ void main() {
       'sourceOfFunds',
       'sourceOfFunds.provided.card.number',
       'sourceOfFunds.provided.card.devicePayment.paymentToken',
+      // The guard must not depend on spelling: the gateway is lenient about case.
+      'SourceOfFunds.provided.card.number',
+      'SOURCEOFFUNDS.provided.card.number',
+      'sourceOfFunds.provided.card[0].number',
     ]) {
       test('reserved card or wallet key "$key"', () {
+        expect(
+          () => GatewayFields().setString(key, 'value'),
+          _throwsInvalidArgument(),
+        );
+      });
+    }
+  });
+
+  group('indexed keys', () {
+    // The native GatewayMap reads indices with the pattern `(.*)\[(.*)\]`, so repeating
+    // gateway groups such as order items must be accepted.
+    for (final key in [
+      'order.item[0].name',
+      'order.item[12].unitPrice',
+      'item[0]',
+    ]) {
+      test('accepts "$key"', () {
+        final fields = GatewayFields()..setString(key, 'value');
+
+        expect(fields.values, {key: 'value'});
+      });
+    }
+
+    for (final key in [
+      'order.item[].name',
+      'order.item[x].name',
+      'order.[0]',
+    ]) {
+      test('rejects malformed index "$key"', () {
         expect(
           () => GatewayFields().setString(key, 'value'),
           _throwsInvalidArgument(),

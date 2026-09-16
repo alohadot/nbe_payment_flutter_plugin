@@ -244,6 +244,16 @@ if (await gateway.getAvailableWallet(walletRequest) != DeviceWallet.none) {
 | `getAvailableWallet(WalletPaymentRequest)` | Google Pay / Apple Pay / none. Shows no UI. |
 | `payWithDeviceWallet(session, WalletPaymentRequest)` | Shows the wallet sheet and stores the token in the session. |
 
+Initialization rules:
+
+- Only the merchant identity (merchant ID, name, URL, region) is fixed for the app process.
+  Calling `initialize` again for the same merchant is accepted, so wallet identifiers can be
+  added later; a different merchant or region throws `alreadyInitialized`.
+- The challenge appearance and language are applied by the native SDKs at initialization and
+  cannot be changed afterwards. A later value is accepted but does not reach the running SDK;
+  on iOS, `AuthenticationOptions.ios` overrides them per call.
+- Concurrent `initialize` calls for the same merchant await the same initialization.
+
 Rules that apply to every operation:
 
 - Input is validated in Dart before anything reaches native code, with the same result on
@@ -262,7 +272,7 @@ Rules that apply to every operation:
 | `WalletConfiguration` | `googlePayMerchantId` (Android, production), `applePayMerchantIdentifier` (iOS). |
 | `PaymentSession` | Session created by your server. Amount is a decimal string. API version ≥ 61 and identical to the server's. |
 | `CardDetails` | Card entered by the payer. `toString()` masks every field. |
-| `GatewayFields` | Extra gateway fields in dot notation (`billing.address.city`, `customer.email`), typed setters. `sourceOfFunds.*` is rejected. |
+| `GatewayFields` | Extra gateway fields in dot notation (`billing.address.city`, `customer.email`, `order.item[0].name`), typed setters. `sourceOfFunds.*` is rejected in any spelling. |
 | `AuthenticationOptions` | Extra authenticate-payer fields; `ios:` options (challenge UI, locale, initiate-authentication fields) ignored on Android. |
 | `AuthenticationResult` | `AuthenticationProceed` or `AuthenticationNotProceeded(reason)`, both with `authenticationTransactionId`, `authenticationPerformed`, `challengePerformed`. `sdkTransactionId` and `threeDS2TransactionStatus` are iOS only. |
 | `WalletPaymentRequest` | Name on the sheet, country code, card networks. Amount and currency come from the session. |
@@ -310,7 +320,10 @@ Branch on `code`, never on `message`.
 | `unknown` | Anything else. |
 
 `nativeDetails` contains sanitized diagnostic text (exception type, HTTP status, gateway error
-cause/field names). It never contains card data, tokens or gateway response bodies.
+cause/field names). It never contains card data, tokens or gateway response bodies. Free text
+coming from the SDK, the 3DS server or the issuer is shortened to 120 characters, challenge URLs
+are stripped of their query string, and an unrecognized error from a newer native version is
+reported as `unknown` with its message and details dropped entirely.
 
 ## Callbacks and events
 
@@ -343,7 +356,14 @@ around those futures (the example app does this for its event log).
 - The Android SDK always uses the device language for the challenge screen;
   `challengeLocale` applies to iOS only.
 - If Android kills the process while the OTP or Google Pay screen is open, the pending result
-  is lost. Check the order on your server.
+  is lost. Check the order on your server. If only the Activity goes away (not the process),
+  the plugin fails the pending operation with `uiUnavailable` instead of hanging.
+- **Keep the `android:configChanges` attribute** that the Flutter template puts on the host
+  Activity. The bundled 3DS SDK's challenge Activity does not declare it, and the plugin cannot
+  cancel an authentication that is already running inside the SDK, so an Activity recreation in
+  the middle of one can fail the challenge.
+- **Request code `10001` is reserved** by the Gateway SDK for the Google Pay sheet. Do not use
+  it for your own `startActivityForResult` calls while a wallet payment is running.
 - Release builds rely on `android/consumer-rules.pro`. Without it every gateway call fails
   with `ClassCastException` under R8.
 
@@ -356,9 +376,16 @@ around those futures (the example app does this for its event log).
 - The iOS SDK initializes synchronously and reports no failure; configuration problems surface
   on the first gateway call.
 - The Apple Pay sheet stays open while the token is stored in the session, then shows success
-  or failure, as Apple requires.
+  or failure, as Apple requires. Storing the token has a 20-second timeout, so the sheet cannot
+  freeze on the spinner past Apple's own deadline.
+- `AuthenticationOptions.ios.challengeUi` **replaces** the appearance set at initialization for
+  that call; it is not merged with it, because the iOS SDK takes a complete theme.
 - SDK completions arrive on background queues; the plugin replies to Flutter on the main
   thread.
+- Dependencies are managed with CocoaPods. Swift Package Manager support (a `Package.swift`
+  with the two frameworks as binary targets) is planned after the first verified iOS build;
+  apps that enable Swift Package Manager keep working meanwhile, because Flutter falls back to
+  CocoaPods for plugins without a package manifest.
 
 ## Architecture
 
@@ -404,6 +431,18 @@ ios/
 example/                            demo and manual test app, Postman collection
 test/                               Dart unit tests
 ```
+
+Deeper documentation for people changing the plugin:
+
+- [`doc/ARCHITECTURE.md`](doc/ARCHITECTURE.md) — layers, the contract, the invariants that must
+  keep holding, and where to add what.
+- [`doc/DECISIONS.md`](doc/DECISIONS.md) — why the API looks like this, including what was
+  deliberately rejected.
+- [`doc/NATIVE_SDK_NOTES.md`](doc/NATIVE_SDK_NOTES.md) — verified facts about the bank SDKs
+  (regions, threading, UI requirements, logging, release-build behavior) and how each was
+  established.
+- [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLIST.md) — what to run before a release.
+- [`CLAUDE.md`](CLAUDE.md) — short orientation for AI coding sessions.
 
 Design rules:
 

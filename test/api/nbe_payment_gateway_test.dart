@@ -123,6 +123,85 @@ void main() {
     );
 
     test(
+      'a concurrent call for the same merchant awaits the same initialization',
+      () async {
+        hostApi.pendingCompletion = Completer<void>();
+
+        final first = gateway.initialize(_configuration);
+        final second = gateway.initialize(_configuration);
+
+        hostApi.pendingCompletion!.complete();
+        await Future.wait([first, second]);
+
+        expect(hostApi.calls, ['initialize']);
+        expect(gateway.isInitialized, isTrue);
+      },
+    );
+
+    test(
+      'a concurrent call for a different merchant is rejected as alreadyInitialized',
+      () async {
+        hostApi.pendingCompletion = Completer<void>();
+        final first = gateway.initialize(_configuration);
+
+        await expectLater(
+          gateway.initialize(
+            const GatewayConfiguration(
+              merchantId: 'OTHER',
+              merchantName: 'My Store',
+              merchantUrl: 'https://mystore.example',
+              region: GatewayRegion.mtf,
+            ),
+          ),
+          _throwsGatewayError(GatewayErrorCode.alreadyInitialized),
+        );
+
+        hostApi.pendingCompletion!.complete();
+        await first;
+      },
+    );
+
+    test('wallet settings can be added after initialization', () async {
+      // They never reach the native SDK, so there is nothing to re-initialize.
+      await gateway.initialize(
+        const GatewayConfiguration(
+          merchantId: 'TESTNBE000123',
+          merchantName: 'My Store',
+          merchantUrl: 'https://mystore.example',
+          region: GatewayRegion.mtf,
+        ),
+      );
+
+      await gateway.initialize(_configuration);
+
+      expect(hostApi.calls, ['initialize']);
+      // The new wallet settings are used by the next wallet request.
+      await gateway.getAvailableWallet(_walletRequest);
+      expect(hostApi.lastWalletRequest!.googlePayMerchantId, 'BCR2DN');
+    });
+
+    test(
+      'a new challenge appearance after initialization is kept without a native call',
+      () async {
+        // The native SDKs apply the appearance once, at initialization.
+        await initialize();
+
+        await gateway.initialize(
+          const GatewayConfiguration(
+            merchantId: 'TESTNBE000123',
+            merchantName: 'My Store',
+            merchantUrl: 'https://mystore.example',
+            region: GatewayRegion.mtf,
+            wallet: WalletConfiguration(googlePayMerchantId: 'BCR2DN'),
+            challengeUi: ChallengeUiCustomization(regularFontName: 'Cairo'),
+          ),
+        );
+
+        expect(hostApi.calls, ['initialize']);
+      },
+    );
+
+    test(
       'a different configuration after initialization is rejected',
       () async {
         await initialize();
@@ -281,6 +360,23 @@ void main() {
         expect(hostApi.lastWalletRequest!.isTestEnvironment, isTrue);
       },
     );
+
+    test('a zero amount is rejected before the sheet opens', () async {
+      await expectLater(
+        gateway.payWithDeviceWallet(
+          const PaymentSession(
+            id: 'SESSION0002',
+            orderId: 'ORDER-1',
+            amount: '0',
+            currency: 'EGP',
+            apiVersion: '72',
+          ),
+          _walletRequest,
+        ),
+        _throwsGatewayError(GatewayErrorCode.invalidArgument),
+      );
+      expect(hostApi.calls, ['initialize']);
+    });
 
     test('payment sends the session and maps the result', () async {
       final result = await gateway.payWithDeviceWallet(

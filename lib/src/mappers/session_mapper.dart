@@ -3,6 +3,7 @@ import '../models/card_details.dart';
 import '../models/gateway_fields.dart';
 import '../models/payment_session.dart';
 
+/// Converts a public session to the transport message.
 SessionMessage toSessionMessage(PaymentSession session) => SessionMessage(
   id: session.id,
   orderId: session.orderId,
@@ -11,6 +12,7 @@ SessionMessage toSessionMessage(PaymentSession session) => SessionMessage(
   apiVersion: session.apiVersion,
 );
 
+/// Converts public card details to the transport message.
 CardMessage toCardMessage(CardDetails card) => CardMessage(
   number: card.number,
   securityCode: card.securityCode,

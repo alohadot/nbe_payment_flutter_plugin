@@ -14,6 +14,7 @@ import com.example.nbe_payment_flutter_plugin.generated.errorCodeInvalidGatewayR
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeOperationInProgress
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeUiUnavailable
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletConfigurationInvalid
+import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletConfigurationInvalid
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletFailed
 import com.google.android.gms.common.api.Status
 import com.google.android.gms.wallet.IsReadyToPayRequest
@@ -50,6 +51,28 @@ internal class GooglePayController(
     )
 
     private var pendingPayment: PendingPayment? = null
+    private val pendingAvailabilityChecks = mutableListOf<(Result<DeviceWallet>) -> Unit>()
+
+    /**
+     * Fails everything still waiting, because the Activity or the engine is going away and the
+     * Google Pay result can no longer be delivered.
+     *
+     * Without this a pending payment would hold the operation lock for the lifetime of the
+     * process and every later call would report "operation in progress".
+     */
+    fun abortPendingOperations() {
+        val payment = pendingPayment
+        pendingPayment = null
+        val availabilityChecks = pendingAvailabilityChecks.toList()
+        pendingAvailabilityChecks.clear()
+
+        val error = failure<Nothing>(
+            errorCodeUiUnavailable,
+            "The screen that started Google Pay went away before it finished.",
+        ).exceptionOrNull()!!
+        payment?.callback?.invoke(Result.failure(error))
+        availabilityChecks.forEach { it(Result.failure(error)) }
+    }
 
     fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit) {
         if (!request.isTestEnvironment && request.googlePayMerchantId.isNullOrBlank()) {
@@ -64,10 +87,24 @@ internal class GooglePayController(
             return
         }
 
-        val readyRequest = IsReadyToPayRequest.fromJson(
-            buildIsReadyToPayRequestJson(request.supportedNetworks),
-        )
+        val readyRequest = try {
+            IsReadyToPayRequest.fromJson(buildIsReadyToPayRequestJson(request.supportedNetworks))
+        } catch (error: Exception) {
+            callback(
+                failure(
+                    errorCodeWalletConfigurationInvalid,
+                    "The Google Pay availability request could not be built.",
+                    nativeDetails = error.javaClass.simpleName,
+                ),
+            )
+            return
+        }
+
+        // Tracked so the answer can be dropped if the engine goes away while Google Play
+        // services is still deciding.
+        pendingAvailabilityChecks += callback
         paymentsClient(request).isReadyToPay(readyRequest).addOnCompleteListener { task ->
+            if (!pendingAvailabilityChecks.remove(callback)) return@addOnCompleteListener
             // A failed task means Google Play services or Google Pay is not usable here, which
             // is an availability answer rather than an error for this check.
             val isReady = task.isSuccessful && task.result == true
@@ -140,20 +177,23 @@ internal class GooglePayController(
     /** @return `true` when the result belonged to a Google Pay payment started by the plugin. */
     fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         val payment = pendingPayment ?: return false
+        var isAnswered = false
 
         // The SDK checks the request code itself and returns false for results that are not
         // its Google Pay request, leaving them to other listeners.
-        return GooglePayHandler.handleActivityResult(
+        val isGooglePayResult = GooglePayHandler.handleActivityResult(
             requestCode,
             resultCode,
             data,
             object : GooglePayCallback {
                 override fun onSuccess(paymentData: JSONObject) {
+                    isAnswered = true
                     pendingPayment = null
                     storeTokenInSession(payment, paymentData)
                 }
 
                 override fun onCancelled() {
+                    isAnswered = true
                     pendingPayment = null
                     payment.callback(
                         Result.success(
@@ -166,6 +206,7 @@ internal class GooglePayController(
                 }
 
                 override fun onError(status: Status) {
+                    isAnswered = true
                     pendingPayment = null
                     payment.callback(
                         failure(
@@ -177,6 +218,21 @@ internal class GooglePayController(
                 }
             },
         )
+
+        // The SDK consumes its request code for any result code, but only calls back for the
+        // three it knows. An unexpected result code would otherwise leave the payment pending
+        // and the operation lock held forever.
+        if (isGooglePayResult && !isAnswered) {
+            pendingPayment = null
+            payment.callback(
+                failure(
+                    errorCodeWalletFailed,
+                    "Google Pay returned an unexpected result.",
+                    nativeDetails = "Activity result code $resultCode",
+                ),
+            )
+        }
+        return isGooglePayResult
     }
 
     private fun storeTokenInSession(payment: PendingPayment, paymentData: JSONObject) {

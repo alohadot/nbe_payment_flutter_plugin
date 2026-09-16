@@ -1,4 +1,39 @@
 include: package:flutter_lints/flutter.yaml
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+analyzer:
+  # Pigeon output; never edited by hand.
+  exclude:
+    - lib/src/generated/**
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    # A public API without documentation is treated as an error: this package is consumed as
+    # an SDK, and the documentation is the contract for app developers.
+    public_member_api_docs: error
+
+linter:
+  rules:
+    # Correctness
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - avoid_slow_async_io
+    - avoid_type_to_string
+    - cancel_subscriptions
+    - close_sinks
+    - discarded_futures
+    - only_throw_errors
+    - throw_in_finally
+    - unawaited_futures
+    - unnecessary_statements
+    - use_build_context_synchronously
+    # API surface
+    - public_member_api_docs
+    - comment_references
+    # Consistency
+    - directives_ordering
+    - prefer_final_locals
+    - prefer_single_quotes
+    - sort_pub_dependencies
+    - use_super_parameters

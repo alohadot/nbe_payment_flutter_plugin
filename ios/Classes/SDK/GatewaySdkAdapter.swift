@@ -34,4 +34,8 @@ protocol GatewaySdkAdapter: AnyObject {
   func payWithDeviceWallet(
     request: WalletRequestMessage,
     completion: @escaping (Result<WalletResultMessage, Error>) -> Void)
+
+  /// Takes down any native screen this adapter presented and fails what waits for it, because
+  /// the engine is going away and the result can no longer be delivered.
+  func abortPendingOperations()
 }

@@ -4,6 +4,7 @@ import '../models/payment_session.dart';
 import 'challenge_ui_mapper.dart';
 import 'session_mapper.dart';
 
+/// Builds the authenticate-payer message for one attempt.
 AuthenticateRequestMessage toAuthenticateRequestMessage(
   PaymentSession session, {
   required String authenticationTransactionId,
@@ -31,16 +32,21 @@ AuthenticateRequestMessage toAuthenticateRequestMessage(
   );
 }
 
+/// Converts the native authentication result message to the public sealed result.
 AuthenticationResult toAuthenticationResult(
   AuthenticationResultMessage message,
 ) {
-  AuthenticationNotProceeded notProceeded(AuthenticationDeclineReason reason) =>
-      AuthenticationNotProceeded(
-        reason: reason,
-        authenticationTransactionId: message.authenticationTransactionId,
-        authenticationPerformed: message.authenticationPerformed,
-        challengePerformed: message.challengePerformed,
-      );
+  AuthenticationNotProceeded notProceeded(
+    AuthenticationDeclineReason reason,
+  ) => AuthenticationNotProceeded(
+    reason: reason,
+    authenticationTransactionId: message.authenticationTransactionId,
+    authenticationPerformed: message.authenticationPerformed,
+    challengePerformed: message.challengePerformed,
+    // Kept for declines too: the 3DS2 status explains why the issuer refused.
+    sdkTransactionId: message.sdkTransactionId,
+    threeDS2TransactionStatus: message.threeDS2TransactionStatus,
+  );
 
   return switch (message.outcome) {
     AuthenticationOutcomeMessage.proceed => AuthenticationProceed(

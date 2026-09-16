@@ -19,8 +19,11 @@ import com.example.nbe_payment_flutter_plugin.generated.errorCodeOperationInProg
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeUnknown
 import com.example.nbe_payment_flutter_plugin.generated.errorDetailsNative
 import com.example.nbe_payment_flutter_plugin.sdk.GatewaySdkAdapter
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 internal class GatewayHostApiImplTest {
@@ -93,6 +96,12 @@ internal class GatewayHostApiImplTest {
         }
 
         override fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?) = false
+
+        var activityDetachedCount = 0
+
+        override fun onActivityDetached() {
+            activityDetachedCount++
+        }
     }
 
     private val walletRequest = WalletRequestMessage(
@@ -129,6 +138,13 @@ internal class GatewayHostApiImplTest {
     private val adapter = ControllableSdkAdapter()
     private val hostApi = GatewayHostApiImpl(adapter)
     private val results = mutableListOf<Result<Unit>>()
+
+    // The lock is process-wide, so every test starts from a released one.
+    @BeforeTest
+    fun releaseLock() = GatewayOperationLock.resetForTesting()
+
+    @AfterTest
+    fun releaseLockAfterwards() = GatewayOperationLock.resetForTesting()
 
     private fun initialize() = hostApi.initialize(request) { results += it }
 
@@ -233,6 +249,49 @@ internal class GatewayHostApiImplTest {
         adapter.pendingAuthenticationCallbacks.single()(Result.success(message))
 
         assertEquals(message, authenticationResults.single().getOrNull())
+    }
+
+    @Test
+    fun disposeFailsTheRunningOperationAndReleasesTheLock() {
+        initialize()
+
+        hostApi.dispose()
+
+        assertEquals(errorCodeUnknown, results.single().bridgeError().code)
+        assertFalse(GatewayOperationLock.isBusy)
+
+        // The gateway is usable again after the engine is re-attached.
+        initialize()
+        assertEquals(2, adapter.pendingCallbacks.size)
+    }
+
+    @Test
+    fun anSdkAnswerAfterDisposeIsIgnored() {
+        initialize()
+        hostApi.dispose()
+
+        adapter.pendingCallbacks.single()(Result.success(Unit))
+
+        assertEquals(1, results.size)
+    }
+
+    @Test
+    fun disposeWithoutARunningOperationDoesNothing() {
+        hostApi.dispose()
+
+        assertTrue(results.isEmpty())
+        assertFalse(GatewayOperationLock.isBusy)
+    }
+
+    @Test
+    fun theLockIsSharedBetweenHostApiInstances() {
+        // Two Flutter engines in one process share the SDK singletons.
+        val otherHostApi = GatewayHostApiImpl(ControllableSdkAdapter())
+
+        initialize()
+        otherHostApi.initialize(request) { results += it }
+
+        assertEquals(errorCodeOperationInProgress, results.single().bridgeError().code)
     }
 
     @Test
