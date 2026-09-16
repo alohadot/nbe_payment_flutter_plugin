@@ -3,6 +3,28 @@
 All notable changes to this plugin. Versions follow [Semantic Versioning](https://semver.org);
 see "Versioning" in the README.
 
+## 0.1.1 — 2026-09-17
+
+Fixes the build on Flutter 3.27, the oldest version `pubspec.yaml` allows.
+
+Fixed:
+
+- `challenge_ui_mapper.dart` used `Color.toARGB32()`, which does not exist in Flutter 3.27, so
+  any app pinned to it failed to compile. The ARGB integer is now built from the colour's
+  channel components, which exist in 3.27 and are not deprecated in newer versions. A unit test
+  pins the conversion.
+- The example app used `DropdownButtonFormField(initialValue:)`, a parameter renamed after
+  Flutter 3.27, and took its `minSdk` from `flutter.minSdkVersion`, which is 21 on that version
+  while the plugin needs 24. Its Dart SDK constraint also still said `^3.11.5`, inherited from
+  `flutter create`; it now matches the plugin (`^3.6.0`), so the example builds on the oldest
+  supported Flutter and can prove that claim.
+
+Verified: `flutter analyze` and all unit tests on Flutter 3.27.4 (Dart 3.6.2) as well as on
+3.41.9, plus a debug APK of the example built with 3.27.4.
+
+The plugin's own dev dependencies (Pigeon, flutter_lints 6) still need a newer SDK. They never
+reach consuming apps; see "Commands" in `CLAUDE.md`.
+
 ## 0.1.0 — 2026-09-17
 
 Adds the saved-card flow. First tagged version; apps pin this tag.

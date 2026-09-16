@@ -4,8 +4,11 @@ description: "Demonstrates how to use the nbe_payment_flutter_plugin plugin."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
+# Deliberately pinned to the oldest Flutter the plugin supports (see pubspec.yaml of the
+# plugin): this app is what proves the plugin still builds there, so flutter_lints stays on the
+# last version that runs on Dart 3.6 as well.
 environment:
-  sdk: ^3.11.5
+  sdk: ^3.6.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -40,7 +43,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^6.0.0
+  flutter_lints: ^5.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -24,7 +24,9 @@ android {
         applicationId = "com.example.nbe_payment_flutter_plugin_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Set explicitly, not from flutter.minSdkVersion: the plugin needs API 24 and Flutter
+        // 3.27, the oldest version the plugin supports, still defaults that property to 21.
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

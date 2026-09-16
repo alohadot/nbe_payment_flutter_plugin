@@ -84,7 +84,7 @@ dependencies:
   nbe_payment_flutter_plugin:
     git:
       url: <company repository URL>
-      ref: v0.1.0 # always pin a tag
+      ref: v0.1.1 # always pin a tag
 ```
 
 Then complete the [native requirements](#native-requirements).

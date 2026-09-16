@@ -31,7 +31,7 @@ Everything a new session needs is in those files; nothing important lives only i
 
 | Area | State |
 |---|---|
-| Dart layer | Complete, 165 unit tests |
+| Dart layer | Complete, 173 unit tests |
 | Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
 | Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
@@ -66,7 +66,7 @@ doc/                  architecture, decisions, SDK notes, release checklist
 ```sh
 # Dart
 flutter analyze
-flutter test                     # 165 tests
+flutter test                     # 173 tests
 
 # Regenerate the contract after editing pigeons/payment_api.dart
 dart run pigeon --input pigeons/payment_api.dart
@@ -86,6 +86,15 @@ cd example/ios && pod install && cd .. && flutter build ios --simulator --debug
 
 On this Windows machine, chaining `flutter analyze` and `flutter test` in one shell command has
 hung more than once; run them as separate commands.
+
+```sh
+# Check the oldest supported Flutter (3.27.4 / Dart 3.6.2) before a release. The dev
+# dependencies (Pigeon, flutter_lints 6) need a newer SDK, so comment them out in pubspec.yaml
+# for the run and restore them afterwards; consuming apps never see them.
+/c/flutter_src/flutter_windows_3.27.4-stable/flutter/bin/flutter analyze
+/c/flutter_src/flutter_windows_3.27.4-stable/flutter/bin/flutter test
+cd example && /c/flutter_src/flutter_windows_3.27.4-stable/flutter/bin/flutter build apk --debug
+```
 
 The Flutter SDK on `PATH` (3.27.4, Dart 3.6.2) cannot even resolve the dev dependencies: the
 pinned Pigeon 27.3.0 needs Dart 3.7+. Use a newer SDK installed on this machine for the dev
@@ -109,6 +118,10 @@ the real change.
 - **One gateway operation at a time**, enforced in Dart *and* in both natives with a
   process-wide lock. Whenever a native screen can disappear, make sure the pending operation is
   failed — a held lock blocks every later call for the life of the process.
+- **`lib/` must compile on Flutter 3.27 / Dart 3.6**, the floor in `pubspec.yaml`. The dev
+  toolchain is much newer, so an API added after 3.27 (`Color.toARGB32()` was one) analyzes
+  cleanly here and breaks every app pinned to the floor. Analyze and test with the 3.27.4 SDK
+  before a release; the example app is pinned to the same floor so it can prove the claim.
 - **Never log or leak card data.** No `print` in `lib/`; `CardDetails`, `PaymentSession` and
   `GatewayFields` mask their values in `toString`; `nativeDetails` carries only sanitized text
   (types, HTTP status, gateway error codes), never messages from an unrecognized error.

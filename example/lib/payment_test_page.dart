@@ -410,27 +410,35 @@ class _PaymentTestPageState extends State<PaymentTestPage>
             children: [
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: DropdownButtonFormField<GatewayRegion>(
-                  initialValue: _region,
+                // DropdownButton inside an InputDecorator, not DropdownButtonFormField: that
+                // form field renamed its `value` parameter to `initialValue` after Flutter
+                // 3.27, and the example must build on the oldest version the plugin supports.
+                child: InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Region',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
-                  items: [
-                    for (final region in GatewayRegion.values)
-                      DropdownMenuItem(
-                        value: region,
-                        child: Text(
-                          region == GatewayRegion.mtf
-                              ? 'mtf (test environment)'
-                              : '${region.name} (production)',
-                        ),
-                      ),
-                  ],
-                  onChanged: (region) {
-                    if (region != null) setState(() => _region = region);
-                  },
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<GatewayRegion>(
+                      value: _region,
+                      isExpanded: true,
+                      items: [
+                        for (final region in GatewayRegion.values)
+                          DropdownMenuItem(
+                            value: region,
+                            child: Text(
+                              region == GatewayRegion.mtf
+                                  ? 'mtf (test environment)'
+                                  : '${region.name} (production)',
+                            ),
+                          ),
+                      ],
+                      onChanged: (region) {
+                        if (region != null) setState(() => _region = region);
+                      },
+                    ),
+                  ),
                 ),
               ),
               LabeledTextField(controller: _merchantId, label: 'Merchant ID'),

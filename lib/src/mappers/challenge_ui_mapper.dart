@@ -88,4 +88,14 @@ TextBoxStyleMessage? _toTextBoxMessage(ChallengeTextBoxStyle? style) =>
         cornerRadius: style.cornerRadius,
       );
 
-int? _toArgb(Color? color) => color?.toARGB32();
+// Built from the channel components instead of Color.toARGB32(), which does not exist in
+// Flutter 3.27, the oldest version this plugin supports. The components are doubles in 0..1;
+// the gateway SDKs expect an 8-bit channel each, alpha first.
+int _channel(double value) => (value * 255).round() & 0xff;
+
+int? _toArgb(Color? color) => color == null
+    ? null
+    : _channel(color.a) << 24 |
+          _channel(color.r) << 16 |
+          _channel(color.g) << 8 |
+          _channel(color.b);

@@ -88,7 +88,17 @@ Use `example/postman/nbe_mtf_payment_flow.postman_collection.json`.
 - [ ] No API password, real card or production credentials in the repository
 - [ ] `CardDetails`, `PaymentSession` printed in the example event log are masked
 
-## 8. Documentation and versioning
+## 8. Oldest supported Flutter
+
+The dev toolchain is far newer than the floor in `pubspec.yaml`, so an API added after Flutter
+3.27 passes analysis here and breaks every app pinned to the floor.
+
+- [ ] `flutter analyze` and `flutter test` pass with the 3.27.4 SDK (comment the dev
+      dependencies out for the run; consuming apps never see them)
+- [ ] The example app builds a debug APK with the 3.27.4 SDK
+- [ ] No new deprecation warnings on the newest SDK
+
+## 9. Documentation and versioning
 
 - [ ] Version bumped per Semantic Versioning in `pubspec.yaml` and `NbePaymentVersions.plugin`
 - [ ] `CHANGELOG.md` lists changes, bundled Android/iOS SDK versions and the Pigeon version
