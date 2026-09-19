@@ -2,6 +2,9 @@ package com.example.nbe_payment_flutter_plugin.bridge
 
 import com.example.nbe_payment_flutter_plugin.generated.GatewayBridgeError
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeUnknown
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayCause
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayField
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayValidationType
 import com.example.nbe_payment_flutter_plugin.generated.errorDetailsHttpStatusCode
 import com.example.nbe_payment_flutter_plugin.generated.errorDetailsNative
 
@@ -15,12 +18,32 @@ internal fun gatewayBridgeError(
     message: String,
     nativeDetails: String? = null,
     httpStatusCode: Int? = null,
+    rejection: GatewayRejectionFields? = null,
 ): GatewayBridgeError {
     val details = buildMap<String, Any> {
         nativeDetails?.let { put(errorDetailsNative, it) }
         httpStatusCode?.let { put(errorDetailsHttpStatusCode, it) }
+        rejection?.cause?.let { put(errorDetailsGatewayCause, it) }
+        rejection?.field?.let { put(errorDetailsGatewayField, it) }
+        rejection?.validationType?.let { put(errorDetailsGatewayValidationType, it) }
     }
     return GatewayBridgeError(code, message, details.ifEmpty { null })
+}
+
+/**
+ * The gateway's machine-readable rejection fields, as they appear in the `error` object of its
+ * response. They name what was wrong without repeating what was sent, so the app can tell the
+ * payer which field to fix. `error.explanation` is never carried: it is free text that can
+ * quote submitted values.
+ */
+internal data class GatewayRejectionFields(
+    val cause: String?,
+    val field: String?,
+    val validationType: String?,
+) {
+    // `this.field`, not `field`: inside an accessor that name means Kotlin's backing field.
+    val isEmpty: Boolean
+        get() = cause == null && this.field == null && validationType == null
 }
 
 /**

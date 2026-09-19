@@ -29,6 +29,9 @@ const String errorCodeWalletFailed = 'wallet_failed';
 const String errorCodeUnknown = 'unknown';
 const String errorDetailsHttpStatusCode = 'httpStatusCode';
 const String errorDetailsNative = 'nativeDetails';
+const String errorDetailsGatewayCause = 'gatewayCause';
+const String errorDetailsGatewayField = 'gatewayField';
+const String errorDetailsGatewayValidationType = 'gatewayValidationType';
 
 Object? _extractReplyValueOrThrow(
   List<Object?>? replyList,

@@ -32,11 +32,24 @@ Plain value enums are the exception: they carry no data, so they are defined onc
 contract and exported directly. This removed an earlier duplication where the same seven-value
 region enum existed twice.
 
-## 4. Payment outcomes are results, not exceptions
+## 4. Payment outcomes are values; technical failures are exceptions
 
 `AuthenticationResult` and `WalletPaymentResult` are sealed types, so the compiler forces an app
-to handle both outcomes. `GatewayException` is reserved for technical failures and always
-carries a stable `GatewayErrorCode`; apps must never branch on a message.
+to handle natural outcomes such as proceed/not-proceed and completed/cancelled. `DeviceWallet.none`
+is also a successful availability answer. These outcomes say what the payer, issuer or device
+decided; they are not malfunctions.
+
+Technical and integration failures complete the ordinary Dart `Future<T>` with public
+`GatewayException`, which always carries a stable `GatewayErrorCode`. Apps catch that type at the
+UI boundary, map codes and rejection fields to localized safe copy, and never branch on or show
+developer diagnostics.
+
+A universal `GatewayResult<T>` wrapper was considered and rejected. It would produce nested
+values such as `GatewaySuccess(AuthenticationNotProceeded(...))`, add a switch around every
+`Future<void>` call, and depart from the error-channel convention used by Dart and Flutter APIs.
+It would also make an ignored failure silent because Dart has no `must_use`. Direct `Future<T>`
+values plus one typed exception keep the public contract smaller without losing structured
+errors.
 
 ## 5. Typed fields, with one deliberate escape hatch
 
@@ -159,6 +172,24 @@ it, now has its own method.
 Not enforced by the plugin: `updateSessionWithSecurityCode` must run *after* the server has put
 the card in the session. The plugin cannot see what the server does with the session, so this
 is stated in the README instead.
+
+## 19. The gateway's own rejection fields are part of the failure
+
+The gateway answers a rejected request with `error.cause`, `error.field` and
+`error.validationType`: machine-readable names that say which value is wrong. Until 0.1.1 the
+plugin parsed them natively and then flattened them into one diagnostic string, which left apps
+with nothing to branch on and "something went wrong" as the only message a payer could see.
+
+They are now carried on `GatewayException` as typed values (`GatewayRejectionCause`, the field
+path, and `GatewayValidationType`), so an app can say "the security code is not correct" instead.
+The field paths are exposed as `GatewayFieldNames` constants so apps do not retype them.
+
+`error.explanation` is still dropped everywhere: it is free text and can quote the submitted
+value, which would put a card number into a log or a crash report. What is exposed are names,
+never values.
+
+The limit is documented rather than hidden: these fields describe the request the app sent. A
+decline by the issuer is decided by the server's PAY request, which the plugin never sees.
 
 ## Rejected
 

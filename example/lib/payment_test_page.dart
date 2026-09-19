@@ -368,6 +368,10 @@ class _PaymentTestPageState extends State<PaymentTestPage>
     'Error code: ${error.code.name}',
     error.message,
     if (error.httpStatusCode != null) 'HTTP status: ${error.httpStatusCode}',
+    if (error.cause != null) 'Gateway cause: ${error.cause!.name}',
+    if (error.field != null) 'Gateway field: ${error.field}',
+    if (error.validationType != null)
+      'Validation: ${error.validationType!.name}',
     if (error.nativeDetails != null) 'Native details: ${error.nativeDetails}',
   ].join('\n');
 

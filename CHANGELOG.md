@@ -3,6 +3,36 @@
 All notable changes to this plugin. Versions follow [Semantic Versioning](https://semver.org);
 see "Versioning" in the README.
 
+## 0.2.0 — 2026-09-18
+
+Gateway rejections now say what the gateway objected to, while the API keeps ordinary Dart
+`Future<T>` return values and typed `GatewayException` failures.
+
+Added:
+
+- `GatewayException.cause`, `.field` and `.validationType`: the gateway's own `error.cause`,
+  `error.field` and `error.validationType`, as typed values instead of text buried in
+  `nativeDetails`. An app can tell the payer which field to correct without parsing text.
+- `GatewayFieldNames` with the card field paths, to compare against `field` without retyping
+  them.
+- `GatewayRejectionCause` and `GatewayValidationType`.
+- iOS also reads those fields now: the SDK hands the response body to `failedRequest`, which the
+  plugin previously discarded.
+- Complete Flutter integration guidance for every public method, including normal payment
+  outcomes, expected error codes, safe field-level feedback, retry cautions and suggested UX.
+
+Unchanged:
+
+- Successful methods return their natural values (`void`, `AuthenticationResult`,
+  `DeviceWallet` or `WalletPaymentResult`); technical failures throw `GatewayException`.
+- Payer decisions remain normal values: an authentication decline is
+  `AuthenticationNotProceeded`, a closed wallet sheet is `WalletPaymentCancelled`, and no
+  available wallet is `DeviceWallet.none`.
+
+- `error.explanation` is still never forwarded (free text that can quote a card number), and
+  what an issuer decides about the card still comes from the server's PAY response, not from
+  the plugin.
+
 ## 0.1.1 — 2026-09-17
 
 Fixes the build on Flutter 3.27, the oldest version `pubspec.yaml` allows.

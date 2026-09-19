@@ -2,6 +2,7 @@ import 'package:flutter/services.dart' show PlatformException;
 
 import '../generated/payment_api.g.dart';
 import '../models/gateway_exception.dart';
+import '../models/gateway_rejection.dart';
 
 /// Channel error codes (shared with native code through the Pigeon contract) and the public
 /// code each one maps to. Every [GatewayErrorCode] must appear exactly once.
@@ -49,10 +50,40 @@ GatewayException toGatewayException(PlatformException error) {
     );
   }
 
+  final cause = detailsMap[errorDetailsGatewayCause];
+  final field = detailsMap[errorDetailsGatewayField];
+  final validationType = detailsMap[errorDetailsGatewayValidationType];
+
   return GatewayException(
     code: code,
     message: error.message ?? code.name,
     httpStatusCode: httpStatusCode is int ? httpStatusCode : null,
+    cause: cause is String ? toGatewayRejectionCause(cause) : null,
+    field: field is String ? field : null,
+    validationType: validationType is String
+        ? toGatewayValidationType(validationType)
+        : null,
     nativeDetails: nativeDetails is String ? nativeDetails : null,
   );
 }
+
+/// Maps the gateway's `error.cause`. An unlisted value becomes
+/// [GatewayRejectionCause.unknown] instead of being dropped, so the failure still says that
+/// the gateway named a cause.
+GatewayRejectionCause toGatewayRejectionCause(String cause) =>
+    switch (cause.toUpperCase()) {
+      'INVALID_REQUEST' => GatewayRejectionCause.invalidRequest,
+      'REQUEST_REJECTED' => GatewayRejectionCause.requestRejected,
+      'SERVER_BUSY' => GatewayRejectionCause.serverBusy,
+      'SERVER_FAILED' => GatewayRejectionCause.serverFailed,
+      _ => GatewayRejectionCause.unknown,
+    };
+
+/// Maps the gateway's `error.validationType`.
+GatewayValidationType toGatewayValidationType(String validationType) =>
+    switch (validationType.toUpperCase()) {
+      'MISSING' => GatewayValidationType.missing,
+      'INVALID' => GatewayValidationType.invalid,
+      'UNSUPPORTED' => GatewayValidationType.unsupported,
+      _ => GatewayValidationType.unknown,
+    };

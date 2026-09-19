@@ -8,7 +8,11 @@ import 'package:nbe_payment_flutter_plugin/src/generated/payment_api.g.dart'
         AuthenticationOutcomeMessage,
         errorCodeNetwork,
         errorCodeGatewayRejected,
-        errorDetailsHttpStatusCode;
+        errorDetailsGatewayField,
+        errorDetailsGatewayValidationType,
+        errorDetailsHttpStatusCode,
+        WalletOutcomeMessage,
+        WalletResultMessage;
 
 import 'fake_host_api.dart';
 
@@ -55,7 +59,9 @@ void main() {
     );
   });
 
-  Future<void> initialize() => gateway.initialize(_configuration);
+  Future<void> initialize() async {
+    await gateway.initialize(_configuration);
+  }
 
   test('the public constructor always returns the same shared instance', () {
     expect(identical(NbePaymentGateway(), NbePaymentGateway()), isTrue);
@@ -282,11 +288,15 @@ void main() {
       expect(hostApi.calls, ['initialize']);
     });
 
-    test('native errors keep http status and code', () async {
+    test('native errors keep rejection details', () async {
       hostApi.nextError = PlatformException(
         code: errorCodeGatewayRejected,
         message: 'Rejected',
-        details: <Object?, Object?>{errorDetailsHttpStatusCode: 400},
+        details: <Object?, Object?>{
+          errorDetailsHttpStatusCode: 400,
+          errorDetailsGatewayField: 'sourceOfFunds.provided.card.securityCode',
+          errorDetailsGatewayValidationType: 'INVALID',
+        },
       );
 
       await expectLater(
@@ -294,7 +304,13 @@ void main() {
         throwsA(
           isA<GatewayException>()
               .having((e) => e.code, 'code', GatewayErrorCode.gatewayRejected)
-              .having((e) => e.httpStatusCode, 'httpStatusCode', 400),
+              .having((e) => e.httpStatusCode, 'httpStatusCode', 400)
+              .having((e) => e.field, 'field', GatewayFieldNames.securityCode)
+              .having(
+                (e) => e.validationType,
+                'validationType',
+                GatewayValidationType.invalid,
+              ),
         ),
       );
     });
@@ -322,7 +338,8 @@ void main() {
       expect(hostApi.lastCard, isNull);
     });
 
-    test('an invalid security code fails without calling native code', () async {
+    test('an invalid security code fails without calling native code',
+        () async {
       await expectLater(
         gateway.updateSessionWithSecurityCode(_session, '12'),
         _throwsGatewayError(GatewayErrorCode.invalidArgument),
@@ -448,6 +465,14 @@ void main() {
       },
     );
 
+    test('unavailable wallet is returned as a normal result', () async {
+      hostApi.availableWallet = DeviceWallet.none;
+
+      final wallet = await gateway.getAvailableWallet(_walletRequest);
+
+      expect(wallet, DeviceWallet.none);
+    });
+
     test('a zero amount is rejected before the sheet opens', () async {
       await expectLater(
         gateway.payWithDeviceWallet(
@@ -473,6 +498,20 @@ void main() {
 
       expect(hostApi.lastWalletRequest!.session!.id, 'SESSION0002');
       expect(result, isA<WalletPaymentCompleted>());
+    });
+
+    test('wallet cancellation is returned as a normal result', () async {
+      hostApi.walletResult = WalletResultMessage(
+        outcome: WalletOutcomeMessage.cancelled,
+        wallet: DeviceWallet.googlePay,
+      );
+
+      final result = await gateway.payWithDeviceWallet(
+        _session,
+        _walletRequest,
+      );
+
+      expect(result, isA<WalletPaymentCancelled>());
     });
   });
 

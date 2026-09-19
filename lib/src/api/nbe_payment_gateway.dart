@@ -13,6 +13,7 @@ import '../models/device_wallet.dart';
 import '../models/gateway_configuration.dart';
 import '../models/gateway_exception.dart';
 import '../models/gateway_fields.dart';
+import '../models/gateway_rejection.dart';
 import '../models/payment_session.dart';
 import '../validation/input_validation.dart';
 import 'authentication_transaction_id.dart';
@@ -29,7 +30,9 @@ import 'authentication_transaction_id.dart';
 ///
 /// Only one operation runs at a time; a call made while another is running fails with
 /// [GatewayErrorCode.operationInProgress]. Technical failures are thrown as
-/// [GatewayException]; payment outcomes are returned as results.
+/// [GatewayException]; payment outcomes are returned as typed values. Catch only
+/// [GatewayException] for expected payment failures, branch on its stable
+/// [GatewayException.code], and never show its developer diagnostics directly to the payer.
 class NbePaymentGateway {
   /// Returns the shared gateway. The native SDKs are process-wide singletons, so every
   /// call returns the same instance.
@@ -41,9 +44,9 @@ class NbePaymentGateway {
     NbeGatewayHostApi hostApi, {
     String Function()? generateTransactionId,
   }) : this._(
-         hostApi,
-         generateTransactionId ?? generateAuthenticationTransactionId,
-       );
+          hostApi,
+          generateTransactionId ?? generateAuthenticationTransactionId,
+        );
 
   NbePaymentGateway._(this._hostApi, this._generateTransactionId);
 
@@ -80,6 +83,12 @@ class NbePaymentGateway {
   /// The challenge appearance and language are applied by the native SDKs at initialization
   /// and cannot be changed afterwards: a new value is kept for later calls but the running SDK
   /// keeps the first one. On iOS, `AuthenticationOptions.ios` can override them per call.
+  ///
+  /// Throws [GatewayException] with [GatewayErrorCode.invalidArgument] for invalid merchant
+  /// settings, [GatewayErrorCode.alreadyInitialized] for a different merchant identity,
+  /// [GatewayErrorCode.operationInProgress] while another exclusive operation is active, or an
+  /// initialization/native failure code. These are technical failures; the app should show
+  /// safe localized copy rather than [GatewayException.message].
   Future<void> initialize(GatewayConfiguration configuration) async {
     validateConfiguration(configuration);
     final request = toInitializeRequestMessage(configuration);
@@ -154,6 +163,11 @@ class NbePaymentGateway {
   ///
   /// [additionalFields] can carry extra session fields such as billing address or
   /// customer details.
+  ///
+  /// Completes with no value once the gateway session holds the card. Throws
+  /// [GatewayException] for lifecycle, validation, concurrency, network, gateway rejection, or
+  /// response failures. When a gateway rejection supplies [GatewayException.field], compare it
+  /// with [GatewayFieldNames] to place a safe error beside the affected card field.
   Future<void> updateSessionWithCard(
     PaymentSession session,
     CardDetails card, {
@@ -189,6 +203,11 @@ class NbePaymentGateway {
   ///
   /// [additionalFields] can carry extra session fields such as billing address or customer
   /// details.
+  ///
+  /// Completes with no value once the CVV has been added. Throws [GatewayException] for
+  /// lifecycle, validation, concurrency, network, gateway rejection, or response failures. A
+  /// rejection for [GatewayFieldNames.securityCode] should be shown beside the CVV field; a
+  /// rejected saved card should offer another payment method rather than exposing diagnostics.
   Future<void> updateSessionWithSecurityCode(
     PaymentSession session,
     String securityCode, {
@@ -212,6 +231,13 @@ class NbePaymentGateway {
   /// A new [authenticationTransactionId] is generated when none is given. Either way, the
   /// identifier used is returned in the result and must be sent to the merchant server
   /// for the payment request.
+  ///
+  /// Returns [AuthenticationProceed] when the Mastercard SDK recommends continuing, or
+  /// [AuthenticationNotProceeded] for cancellation, timeout, or a recommendation not to pay.
+  /// Those are normal outcomes. Throws [GatewayException] only when no trustworthy
+  /// authentication outcome could be produced, for example because of validation, network,
+  /// session, gateway, challenge-URL, or UI failures. After an uncertain interruption, check
+  /// the order on the merchant server before retrying.
   Future<AuthenticationResult> authenticatePayer(
     PaymentSession session, {
     String? authenticationTransactionId,
@@ -239,6 +265,10 @@ class NbePaymentGateway {
   ///
   /// This check does not present any UI, so it may run while another operation is in
   /// progress.
+  ///
+  /// [DeviceWallet.none] is a successful availability result, not an error. Throws
+  /// [GatewayException] only when the check itself cannot run. Most apps should hide the wallet
+  /// button and retain card payment rather than show a dialog for an availability failure.
   Future<DeviceWallet> getAvailableWallet(WalletPaymentRequest request) async {
     final configuration = _requireInitialized();
     validateWalletRequest(request);
@@ -252,6 +282,12 @@ class NbePaymentGateway {
 
   /// Shows the device wallet sheet (Google Pay on Android, Apple Pay on iOS) and stores the
   /// authorized wallet payment in the gateway [session].
+  ///
+  /// Returns [WalletPaymentCompleted] after the token is stored or [WalletPaymentCancelled]
+  /// when the payer closes the sheet; cancellation is not a technical error. Throws
+  /// [GatewayException] for validation, concurrency, network, gateway, UI, wallet availability,
+  /// configuration, or wallet failures. Offer card payment for wallet-specific failures and
+  /// check backend order state before retrying an uncertain interruption.
   Future<WalletPaymentResult> payWithDeviceWallet(
     PaymentSession session,
     WalletPaymentRequest request,

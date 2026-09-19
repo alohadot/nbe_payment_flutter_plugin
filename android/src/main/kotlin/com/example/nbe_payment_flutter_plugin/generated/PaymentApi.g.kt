@@ -32,6 +32,9 @@ const val errorCodeWalletFailed: String = "wallet_failed"
 const val errorCodeUnknown: String = "unknown"
 const val errorDetailsHttpStatusCode: String = "httpStatusCode"
 const val errorDetailsNative: String = "nativeDetails"
+const val errorDetailsGatewayCause: String = "gatewayCause"
+const val errorDetailsGatewayField: String = "gatewayField"
+const val errorDetailsGatewayValidationType: String = "gatewayValidationType"
 private object PaymentApiPigeonUtils {
 
   fun wrapResult(result: Any?): List<Any?> {

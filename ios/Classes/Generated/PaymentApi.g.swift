@@ -29,6 +29,9 @@ public let errorCodeWalletFailed: String = "wallet_failed"
 public let errorCodeUnknown: String = "unknown"
 public let errorDetailsHttpStatusCode: String = "httpStatusCode"
 public let errorDetailsNative: String = "nativeDetails"
+public let errorDetailsGatewayCause: String = "gatewayCause"
+public let errorDetailsGatewayField: String = "gatewayField"
+public let errorDetailsGatewayValidationType: String = "gatewayValidationType"
 
 /// Error class for passing custom error details to Dart side.
 final class GatewayBridgeError: Error {

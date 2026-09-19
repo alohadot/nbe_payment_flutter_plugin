@@ -8,9 +8,14 @@ controllers, platform channels or the native SDKs.
 
 ```dart
 final gateway = NbePaymentGateway();
-await gateway.initialize(configuration);
-await gateway.updateSessionWithCard(session, card);
-final result = await gateway.authenticatePayer(session);
+try {
+  await gateway.initialize(configuration);
+  await gateway.updateSessionWithCard(session, card);
+  final authentication = await gateway.authenticatePayer(session);
+  // Switch over AuthenticationProceed / AuthenticationNotProceeded.
+} on GatewayException catch (error) {
+  // Branch on error.code; never show error.message directly to the payer.
+}
 ```
 
 ## Contents
@@ -62,7 +67,7 @@ What the plugin does **not** do, by design of the gateway:
 
 | | Minimum | Notes |
 |---|---|---|
-| Flutter | 3.27 | Dart 3.11 |
+| Flutter | 3.27 | Dart 3.6 (the SDK bundled with Flutter 3.27) |
 | Android | API 24 (Android 7.0) | compileSdk 36. The Gateway SDK itself supports API 23. |
 | iOS | 13.0 | The Gateway SDK itself supports iOS 12. |
 
@@ -84,7 +89,7 @@ dependencies:
   nbe_payment_flutter_plugin:
     git:
       url: <company repository URL>
-      ref: v0.1.1 # always pin a tag
+      ref: v0.2.0 # always pin a tag
 ```
 
 Then complete the [native requirements](#native-requirements).
@@ -300,6 +305,8 @@ Rules that apply to every operation:
 | `WalletConfiguration` | `googlePayMerchantId` (Android, production), `applePayMerchantIdentifier` (iOS). |
 | `PaymentSession` | Session created by your server. Amount is a decimal string. API version ≥ 61 and identical to the server's. |
 | `CardDetails` | Card entered by the payer; `securityCode` is required, the gateway refuses a card payment without it. `toString()` masks every field. |
+| `GatewayException` | A technical or integration failure. Branch on `code`; use `field` and `validationType` for safe field-level feedback. |
+| `GatewayRejectionCause` | The gateway's machine-readable reason: `invalidRequest`, `requestRejected`, `serverBusy`, `serverFailed`, or `unknown`. |
 | `GatewayFields` | Extra gateway fields in dot notation (`billing.address.city`, `customer.email`, `order.item[0].name`), typed setters. `sourceOfFunds.*` is rejected in any spelling. |
 | `AuthenticationOptions` | Extra authenticate-payer fields; `ios:` options (challenge UI, locale, initiate-authentication fields) ignored on Android. |
 | `AuthenticationResult` | `AuthenticationProceed` or `AuthenticationNotProceeded(reason)`, both with `authenticationTransactionId`, `authenticationPerformed`, `challengePerformed`. `sdkTransactionId` and `threeDS2TransactionStatus` are iOS only. |
@@ -313,39 +320,155 @@ never change the payment outcome.
 
 ## Results and errors
 
+### The rule: values for outcomes, exceptions for failures
+
+Every method returns an ordinary Dart `Future<T>`:
+
+- a successful operation completes with `T` (`void` when there is no value);
+- a technical or integration failure completes with [GatewayException](#gatewayexception);
+- a payer decision or issuer recommendation is a normal typed value, not an exception.
+
+For example, a closed wallet sheet returns `WalletPaymentCancelled`, an unavailable wallet
+check returns `DeviceWallet.none`, and a 3DS recommendation not to continue returns
+`AuthenticationNotProceeded`. Network, validation, gateway, UI and configuration problems throw
+`GatewayException`.
+
+Catch `GatewayException` at the UI boundary. Do not catch every `Object`: a different exception
+means a plugin or application bug and should reach error reporting.
+
+```dart
+try {
+  final authentication = await gateway.authenticatePayer(session);
+  switch (authentication) {
+    case AuthenticationProceed(:final authenticationTransactionId):
+      await myServer.pay(
+        sessionId: session.id,
+        authenticationTransactionId: authenticationTransactionId,
+      );
+    case AuthenticationNotProceeded(:final reason):
+      showAuthenticationOutcome(reason);
+  }
+} on GatewayException catch (error) {
+  showSafePaymentError(error);
+}
+```
+
+### What each API returns and what the UI should do
+
+Suggested text below is intentionally generic English copy. The consuming app owns translation,
+tone and presentation. Never display `GatewayException.message` or `nativeDetails` directly.
+
+| API | Successful completion / normal outcome | Expected failure codes | Recommended UI action |
+|---|---|---|---|
+| `initialize` | `Future<void>` completes. | `invalidArgument`, `initializationFailed`, `alreadyInitialized`, `operationInProgress`, `unknown` | Retry initialization only for a transient failure. For configuration/programming errors, disable payment, log safely, and show “Payment is unavailable right now.” |
+| `updateSessionWithCard` | `Future<void>` completes; the session holds the card. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `unknown` | Put a field message under card number/expiry/CVV when `field` identifies it. For `network`, offer retry. Otherwise show “We could not prepare this card for payment.” |
+| `updateSessionWithSecurityCode` | `Future<void>` completes; only the CVV was added to the saved card. | Same session/gateway failures as card update. | Put a field message under CVV when possible. For a rejected saved card, offer another card rather than asking repeatedly for the same CVV. |
+| `authenticatePayer` | `AuthenticationProceed` or `AuthenticationNotProceeded`. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `missingSessionParameter`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `invalidChallengeCompletionUrl`, `uiUnavailable`, `unknown` | Handle `AuthenticationNotProceeded` with the reason table below. On an uncertain network/UI interruption, check order state on the backend before retrying. |
+| `getAvailableWallet` | `googlePay`, `applePay`, or `none`; it presents no UI. | `notInitialized`, `invalidArgument`, `walletConfigurationInvalid`, `uiUnavailable`, `unknown` | Usually hide the wallet button and retain card payment instead of showing a dialog. `none` is not an error. |
+| `payWithDeviceWallet` | `WalletPaymentCompleted` or `WalletPaymentCancelled`. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `uiUnavailable`, `walletUnavailable`, `walletConfigurationInvalid`, `walletFailed`, `unknown` | Cancellation needs no technical-error dialog. For wallet failures, offer card payment. Check backend state before retrying after an uncertain interruption. |
+
+Prevent `operationInProgress` in the UI by disabling the initiating button until its future
+settles. It remains an error code because Dart and both native platforms enforce the rule as a
+last line of defense.
+
 ### Authentication outcomes (not exceptions)
 
-| `AuthenticationDeclineReason` | Meaning |
-|---|---|
-| `cancelledByUser` | The payer closed the challenge screen. |
-| `challengeTimedOut` | The payer did not finish the challenge in time. |
-| `resubmitWithAlternativePaymentDetails` | Ask for another card or payment method. |
-| `abandonOrder` | The issuer/scheme requires abandoning the order. |
-| `doNotProceed` | Authentication failed; this transaction cannot succeed. |
-| `unknownRecommendation` | A recommendation this plugin version does not know. |
+These values come from the Mastercard Gateway SDK's authentication recommendation.
+
+| `AuthenticationDeclineReason` | Meaning | Suggested payer-facing action |
+|---|---|---|
+| `cancelledByUser` | The payer closed the challenge screen. | Return to payment without a technical-error dialog; optionally show “Verification was cancelled.” |
+| `challengeTimedOut` | The payer did not finish the challenge in time. | “Verification timed out. Try again.” |
+| `resubmitWithAlternativePaymentDetails` | The issuer requests different payment details. | “Use another card or payment method.” |
+| `abandonOrder` | The issuer/scheme requires abandoning the order. | Stop this checkout attempt and show “This payment cannot be completed.” |
+| `doNotProceed` | Authentication failed; this transaction cannot succeed. | Do not call PAY; offer another payment method. |
+| `unknownRecommendation` | A recommendation this plugin version does not recognize. | Fail closed: do not call PAY; log safely and offer another method. |
 
 ### `GatewayException`
 
-Branch on `code`, never on `message`.
+Branch on `code`, never on `message`. `message` is an English developer description, not
+localized or approved payer copy. `nativeDetails` is sanitized diagnostic context for logs only.
 
-| `GatewayErrorCode` | When |
+| `GatewayErrorCode` | When | Typical handling |
+|---|---|---|
+| `notInitialized` | Operation before `initialize`. | Programming/lifecycle error; initialize, log, and show generic unavailability if it reaches UI. |
+| `alreadyInitialized` | `initialize` with a different merchant configuration in the same process. | Configuration error; do not retry with another merchant. |
+| `initializationFailed` | The native SDK failed to initialize (Android). | Retry only if appropriate; otherwise disable payment temporarily. |
+| `operationInProgress` | Another operation is running. | Prevent double taps; normally no dialog. |
+| `invalidArgument` | Validation failed before contacting the gateway. | Correct local input; never retry unchanged input. |
+| `invalidApiVersion` | Session API version is invalid or below 61. | Backend/app integration error; recreate the session with the configured version. |
+| `missingSessionParameter` | The session lacks fields required for 3DS. | Backend integration error; recreate/update the session. |
+| `network` | Gateway unreachable, including certificate-pinning failures. | Offer retry; for interrupted payment/authentication, check backend order state first. |
+| `gatewayRejected` | HTTP error from the gateway. | Inspect `cause`, `field`, `validationType`, and `httpStatusCode`; never parse `message`. |
+| `invalidGatewayResponse` | Response could not be read. | Log safely and show a generic retry message. |
+| `invalidChallengeCompletionUrl` | 3DS challenge completion URL was invalid. | Stop authentication and log as an integration failure. |
+| `uiUnavailable` | No visible Activity/view controller can present 3DS or wallet UI. | Bring the app foreground, wait for a visible route, then allow retry. |
+| `walletUnavailable` | The configured wallet cannot be used on this device. | Hide that wallet and offer card payment. |
+| `walletConfigurationInvalid` | Missing or invalid wallet merchant settings. | Disable wallet payment and fix configuration; do not blame payer input. |
+| `walletFailed` | The device wallet reported a failure. | Offer retry or card payment. |
+| `unknown` | No stable category matched. | Generic message plus sanitized logging; do not retry indefinitely. |
+
+### Field-level gateway rejections
+
+For `gatewayRejected`, the gateway may identify the rejected field without echoing its value:
+
+| Property | Meaning |
 |---|---|
-| `notInitialized` | Operation before `initialize`. |
-| `alreadyInitialized` | `initialize` with a different configuration in the same process. |
-| `initializationFailed` | The native SDK failed to initialize (Android). |
-| `operationInProgress` | Another operation is running. |
-| `invalidArgument` | Validation failed before contacting the gateway. |
-| `invalidApiVersion` | Session API version below 61. |
-| `missingSessionParameter` | The session lacks fields required for 3DS (set them on the server). |
-| `network` | Gateway unreachable (includes certificate pinning failures). |
-| `gatewayRejected` | HTTP error from the gateway; see `httpStatusCode`. |
-| `invalidGatewayResponse` | Response could not be read. |
-| `invalidChallengeCompletionUrl` | 3DS challenge completion URL invalid. |
-| `uiUnavailable` | No visible screen to show 3DS or the wallet sheet (e.g. app in background). |
-| `walletUnavailable` | Wallet not usable on the device. |
-| `walletConfigurationInvalid` | Missing/invalid wallet merchant settings. |
-| `walletFailed` | The wallet reported an error. |
-| `unknown` | Anything else. |
+| `cause` | `invalidRequest`, `requestRejected`, `serverBusy`, `serverFailed`, or `unknown`. |
+| `field` | Gateway path such as `sourceOfFunds.provided.card.securityCode`. Compare card paths with `GatewayFieldNames`. |
+| `validationType` | `missing`, `invalid`, `unsupported`, or `unknown`. |
+| `httpStatusCode` | HTTP status returned by the gateway, when available. |
+
+`error.explanation` is deliberately never forwarded because gateway free text can quote submitted
+card data.
+
+```dart
+void showSafePaymentError(GatewayException error) {
+  if (error.code == GatewayErrorCode.gatewayRejected) {
+    switch (error.field) {
+      case GatewayFieldNames.cardNumber:
+        showCardNumberError('Check the card number.');
+        return;
+      case GatewayFieldNames.expiryMonth:
+      case GatewayFieldNames.expiryYear:
+        showExpiryError('Check the expiry date.');
+        return;
+      case GatewayFieldNames.securityCode:
+        showSecurityCodeError('Check the security code.');
+        return;
+    }
+  }
+
+  final safeMessage = switch (error.code) {
+    GatewayErrorCode.operationInProgress => null,
+    GatewayErrorCode.network =>
+      'The connection was interrupted. Check your payment status before trying again.',
+    GatewayErrorCode.uiUnavailable =>
+      'Could not open the verification screen. Return to the app and try again.',
+    GatewayErrorCode.walletUnavailable || GatewayErrorCode.walletFailed =>
+      'Wallet payment is unavailable. Use another payment method.',
+    GatewayErrorCode.invalidArgument ||
+    GatewayErrorCode.invalidApiVersion ||
+    GatewayErrorCode.missingSessionParameter ||
+    GatewayErrorCode.alreadyInitialized ||
+    GatewayErrorCode.initializationFailed ||
+    GatewayErrorCode.walletConfigurationInvalid ||
+    GatewayErrorCode.invalidChallengeCompletionUrl ||
+    GatewayErrorCode.notInitialized =>
+      'Payment is unavailable right now.',
+    _ => 'Payment could not be completed.',
+  };
+  if (safeMessage != null) showError(safeMessage);
+}
+```
+
+This helper deliberately does not decide whether an operation is safe to retry. The calling flow
+must make that decision from the operation and order state; after an interrupted authentication or
+wallet payment, ask the merchant backend for the latest order state first.
+
+`GatewayFields.setString`, `setInt`, `setDouble` and `setBool` are synchronous builders; they can
+throw `GatewayException(invalidArgument)` immediately for malformed or reserved keys. Gateway
+methods report their validation and native failures asynchronously through the returned future.
 
 `nativeDetails` contains sanitized diagnostic text (exception type, HTTP status, gateway error
 cause/field names). It never contains card data, tokens or gateway response bodies. Free text

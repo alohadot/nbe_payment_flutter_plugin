@@ -64,6 +64,14 @@ const String errorCodeUnknown = 'unknown';
 const String errorDetailsHttpStatusCode = 'httpStatusCode';
 const String errorDetailsNative = 'nativeDetails';
 
+// The gateway's own machine-readable rejection fields, taken from the `error` object of its
+// response. They name what was wrong without repeating what was sent, so the app can tell the
+// payer which field to fix. `error.explanation` is never forwarded: it is free text that can
+// quote submitted values.
+const String errorDetailsGatewayCause = 'gatewayCause';
+const String errorDetailsGatewayField = 'gatewayField';
+const String errorDetailsGatewayValidationType = 'gatewayValidationType';
+
 // ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------

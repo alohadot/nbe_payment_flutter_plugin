@@ -5,6 +5,9 @@ import com.example.nbe_payment_flutter_plugin.generated.errorCodeInvalidGatewayR
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeNetwork
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeNotInitialized
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeUnknown
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayCause
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayField
+import com.example.nbe_payment_flutter_plugin.generated.errorDetailsGatewayValidationType
 import com.example.nbe_payment_flutter_plugin.generated.errorDetailsHttpStatusCode
 import com.example.nbe_payment_flutter_plugin.generated.errorDetailsNative
 import com.google.gson.JsonSyntaxException
@@ -46,6 +49,36 @@ internal class GatewayRequestErrorMappingTest {
         )
         assertFalse(error.toString().contains("5123450000000008"))
         assertFalse(details(error).values.joinToString().contains("5123450000000008"))
+    }
+
+    @Test
+    fun httpErrorsCarryTheGatewayRejectionFieldsSeparately() {
+        val error = gatewayRequestBridgeError(
+            httpException(
+                400,
+                """{"error":{"cause":"INVALID_REQUEST","explanation":"Value '100' is invalid",""" +
+                    """"field":"sourceOfFunds.provided.card.securityCode","validationType":"INVALID"}}""",
+            ),
+        )
+
+        // The app needs these as values, not inside a diagnostic string: they are what turns
+        // "something went wrong" into "check the security code".
+        assertEquals("INVALID_REQUEST", details(error)[errorDetailsGatewayCause])
+        assertEquals(
+            "sourceOfFunds.provided.card.securityCode",
+            details(error)[errorDetailsGatewayField],
+        )
+        assertEquals("INVALID", details(error)[errorDetailsGatewayValidationType])
+    }
+
+    @Test
+    fun httpErrorsWithoutRejectionFieldsCarryNone() {
+        val error = gatewayRequestBridgeError(httpException(401, """{"error":{"explanation":"nope"}}"""))
+
+        assertEquals(errorCodeGatewayRejected, error.code)
+        assertFalse(details(error).containsKey(errorDetailsGatewayCause))
+        assertFalse(details(error).containsKey(errorDetailsGatewayField))
+        assertFalse(details(error).containsKey(errorDetailsGatewayValidationType))
     }
 
     @Test

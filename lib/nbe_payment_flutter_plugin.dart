@@ -20,4 +20,5 @@ export 'src/models/device_wallet.dart';
 export 'src/models/gateway_configuration.dart';
 export 'src/models/gateway_exception.dart';
 export 'src/models/gateway_fields.dart';
+export 'src/models/gateway_rejection.dart';
 export 'src/models/payment_session.dart';

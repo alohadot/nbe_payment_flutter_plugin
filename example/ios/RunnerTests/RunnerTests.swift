@@ -252,6 +252,24 @@ final class SdkMappingTests: XCTestCase {
     XCTAssertEqual(payload.get("sourceOfFunds.provided.card.securityCode").stringValue, "100")
   }
 
+  func testGatewayRejectionFieldsAreReadWithoutTheExplanation() {
+    let rejection = readGatewayRejection(
+      """
+      {"error":{"cause":"INVALID_REQUEST","explanation":"Value '100' is invalid",\
+      "field":"sourceOfFunds.provided.card.securityCode","validationType":"INVALID"}}
+      """)
+
+    XCTAssertEqual(rejection?.cause, "INVALID_REQUEST")
+    XCTAssertEqual(rejection?.field, "sourceOfFunds.provided.card.securityCode")
+    XCTAssertEqual(rejection?.validationType, "INVALID")
+  }
+
+  func testGatewayRejectionIsNilWithoutUsableFields() {
+    XCTAssertNil(readGatewayRejection(nil))
+    XCTAssertNil(readGatewayRejection("<html>Bad gateway</html>"))
+    XCTAssertNil(readGatewayRejection(#"{"error":{"explanation":"nope"}}"#))
+  }
+
   func testSdkDetailsAreShortenedAndNormalized() {
     XCTAssertEqual(sanitizedSdkDetail("  short   detail \n"), "short detail")
     XCTAssertNil(sanitizedSdkDetail(nil))
@@ -291,9 +309,22 @@ final class SdkMappingTests: XCTestCase {
   }
 
   func testGatewayErrorsMapToContractCodes() {
-    let rejected = gatewayRequestBridgeError(GatewayError.failedRequest(401, "Unauthorized"))
+    let rejected = gatewayRequestBridgeError(
+      GatewayError.failedRequest(
+        400,
+        """
+        {"error":{"cause":"INVALID_REQUEST","explanation":"Value '100' is invalid",\
+        "field":"sourceOfFunds.provided.card.securityCode","validationType":"INVALID"}}
+        """))
     XCTAssertEqual(rejected.code, errorCodeGatewayRejected)
-    XCTAssertEqual((rejected.details as? [String: any Sendable])?[errorDetailsHttpStatusCode] as? Int, 401)
+    let details = rejected.details as? [String: any Sendable]
+    XCTAssertEqual(details?[errorDetailsHttpStatusCode] as? Int, 400)
+    XCTAssertEqual(details?[errorDetailsGatewayCause] as? String, "INVALID_REQUEST")
+    XCTAssertEqual(
+      details?[errorDetailsGatewayField] as? String,
+      "sourceOfFunds.provided.card.securityCode")
+    XCTAssertEqual(details?[errorDetailsGatewayValidationType] as? String, "INVALID")
+    XCTAssertFalse((details?[errorDetailsNative] as? String)?.contains("100") ?? true)
 
     XCTAssertEqual(gatewayRequestBridgeError(URLError(.notConnectedToInternet)).code, errorCodeNetwork)
     XCTAssertEqual(gatewayRequestBridgeError(GatewayError.missingResponse).code, errorCodeInvalidGatewayResponse)

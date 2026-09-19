@@ -1,3 +1,5 @@
+import 'gateway_rejection.dart';
+
 /// Technical failure codes reported by [GatewayException].
 ///
 /// Payment outcomes such as a cancelled challenge or an issuer decline are not errors;
@@ -57,12 +59,20 @@ enum GatewayErrorCode {
 }
 
 /// A technical failure while talking to the payment gateway.
+///
+/// Public failure returned through the error channel of a gateway method's `Future`.
+///
+/// Catch this at the UI boundary and branch on [code]. [message] and [nativeDetails] are
+/// developer diagnostics and must not be shown directly to the payer.
 class GatewayException implements Exception {
   /// Creates a failure with a stable [code] and a human-readable [message].
   const GatewayException({
     required this.code,
     required this.message,
     this.httpStatusCode,
+    this.cause,
+    this.field,
+    this.validationType,
     this.nativeDetails,
   });
 
@@ -76,17 +86,24 @@ class GatewayException implements Exception {
   /// [GatewayErrorCode.gatewayRejected]; `null` for every other code today.
   final int? httpStatusCode;
 
+  /// Why the gateway rejected the request, from its own `error.cause`.
+  final GatewayRejectionCause? cause;
+
+  /// The gateway field the rejection is about, from its own `error.field`.
+  final String? field;
+
+  /// What is wrong with [field], from the gateway's own `error.validationType`.
+  final GatewayValidationType? validationType;
+
   /// Sanitized native diagnostic information, for debugging only.
   final String? nativeDetails;
 
   @override
   String toString() {
-    final status = httpStatusCode == null
-        ? ''
-        : ', httpStatusCode: $httpStatusCode';
-    final details = nativeDetails == null
-        ? ''
-        : ', nativeDetails: $nativeDetails';
+    final status =
+        httpStatusCode == null ? '' : ', httpStatusCode: $httpStatusCode';
+    final details =
+        nativeDetails == null ? '' : ', nativeDetails: $nativeDetails';
     return 'GatewayException(${code.name}: $message$status$details)';
   }
 }

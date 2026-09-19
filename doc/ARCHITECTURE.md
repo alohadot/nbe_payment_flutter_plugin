@@ -57,9 +57,11 @@ one call with one result.
 
 1. **Validation happens in Dart**, before anything reaches native code, so both platforms
    reject the same input with the same error (`lib/src/validation`).
-2. **Payment outcomes are results; technical failures are exceptions.** Sealed result types
-   force the app to handle both outcomes; `GatewayException` always carries a stable
-   `GatewayErrorCode`, never a message to branch on.
+2. **Payment outcomes are values; technical failures use the Future error channel.** Public
+   methods return ordinary `Future<T>` values. `AuthenticationResult` and
+   `WalletPaymentResult` are sealed so the compiler checks their natural outcomes; technical
+   failures throw public `GatewayException` with a stable `GatewayErrorCode`, never a message to
+   branch on.
 3. **One operation at a time**, checked in Dart and again in each native side with a
    process-wide lock (`GatewayOperationLock`), because the SDK objects are singletons shared by
    every Flutter engine in the app. `getAvailableWallet` is exempt: it shows no UI and changes
@@ -108,7 +110,10 @@ GatewayBridgeError(code, message, details)      code = constant from the contrac
 PlatformException
    │  lib/src/mappers/gateway_error_mapper.dart
    ▼
-GatewayException(code, message, httpStatusCode?, nativeDetails?)
+GatewayException(code, message, httpStatusCode?, cause?, field?, validationType?, nativeDetails?)
+   │  completes the public Future with an error
+   ▼
+Flutter app catches GatewayException and maps stable fields to localized, safe UI
 ```
 
 Rules: every `GatewayErrorCode` maps to exactly one channel constant (a test enforces it); an
@@ -136,5 +141,6 @@ gateway and the error mapping. A successful payment and an OTP challenge are man
 |---|---|
 | New gateway capability | `pigeons/payment_api.dart` → regenerate → adapters (Kotlin/Swift) → mappers → `NbePaymentGateway` → public model → tests at every level → README |
 | New error case | contract constant → adapter mapping → `GatewayErrorCode` → `gatewayErrorCodesByChannelCode` → README table |
+| New failure detail | contract `errorDetails*` constant → both bridges fill it → `gateway_error_mapper.dart` → field on `GatewayException` → README table |
 | New validation rule | `lib/src/validation/input_validation.dart` + test |
 | SDK upgrade | see the two "Updating the … native SDK" sections in the README |

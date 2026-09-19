@@ -1,5 +1,6 @@
 package com.example.nbe_payment_flutter_plugin.sdk
 
+import com.example.nbe_payment_flutter_plugin.bridge.GatewayRejectionFields
 import com.example.nbe_payment_flutter_plugin.bridge.gatewayBridgeError
 import com.example.nbe_payment_flutter_plugin.generated.GatewayBridgeError
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeGatewayRejected
@@ -23,12 +24,16 @@ import java.io.IOException
  * kept.
  */
 internal fun gatewayRequestBridgeError(throwable: Throwable): GatewayBridgeError = when (throwable) {
-    is HttpException -> gatewayBridgeError(
-        code = errorCodeGatewayRejected,
-        message = "The gateway rejected the request.",
-        nativeDetails = describeGatewayErrorBody(throwable),
-        httpStatusCode = throwable.code(),
-    )
+    is HttpException -> {
+        val rejection = readGatewayRejection(throwable)
+        gatewayBridgeError(
+            code = errorCodeGatewayRejected,
+            message = "The gateway rejected the request.",
+            nativeDetails = describeGatewayErrorBody(throwable.code(), rejection),
+            httpStatusCode = throwable.code(),
+            rejection = rejection,
+        )
+    }
 
     // Includes SSLPeerUnverifiedException raised by the SDK's certificate pinning.
     is IOException -> gatewayBridgeError(
@@ -57,12 +62,13 @@ internal fun gatewayRequestBridgeError(throwable: Throwable): GatewayBridgeError
 }
 
 /**
- * Keeps the gateway's machine-readable error fields (`error.cause`, `error.field`,
+ * Reads the gateway's machine-readable error fields (`error.cause`, `error.field`,
  * `error.validationType`), which name what failed without repeating submitted values.
  * `error.explanation` is deliberately dropped: it is free text that may quote input.
+ *
+ * Returns `null` when the body is missing, unreadable or carries none of the three fields.
  */
-private fun describeGatewayErrorBody(error: HttpException): String {
-    val summary = mutableListOf("HTTP ${error.code()}")
+internal fun readGatewayRejection(error: HttpException): GatewayRejectionFields? {
     val gatewayError = try {
         error.response()?.errorBody()?.string()
             ?.let { JsonParser.parseString(it) }
@@ -71,12 +77,25 @@ private fun describeGatewayErrorBody(error: HttpException): String {
             ?.getAsJsonObject("error")
     } catch (_: Exception) {
         null
-    }
-    gatewayError?.let { json ->
-        listOf("cause", "field", "validationType").forEach { name ->
-            json.stringOrNull(name)?.let { summary += "$name=$it" }
-        }
-    }
+    } ?: return null
+
+    val rejection = GatewayRejectionFields(
+        cause = gatewayError.stringOrNull("cause"),
+        field = gatewayError.stringOrNull("field"),
+        validationType = gatewayError.stringOrNull("validationType"),
+    )
+    return rejection.takeIf { !it.isEmpty }
+}
+
+/** The same fields as one diagnostic line, for logs. */
+private fun describeGatewayErrorBody(
+    httpStatusCode: Int,
+    rejection: GatewayRejectionFields?,
+): String {
+    val summary = mutableListOf("HTTP $httpStatusCode")
+    rejection?.cause?.let { summary += "cause=$it" }
+    rejection?.field?.let { summary += "field=$it" }
+    rejection?.validationType?.let { summary += "validationType=$it" }
     return summary.joinToString("; ")
 }
 

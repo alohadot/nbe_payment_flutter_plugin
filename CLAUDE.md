@@ -31,7 +31,7 @@ Everything a new session needs is in those files; nothing important lives only i
 
 | Area | State |
 |---|---|
-| Dart layer | Complete, 173 unit tests |
+| Dart layer | Complete, 183 unit tests |
 | Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
 | Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
@@ -66,7 +66,7 @@ doc/                  architecture, decisions, SDK notes, release checklist
 ```sh
 # Dart
 flutter analyze
-flutter test                     # 173 tests
+flutter test                     # 183 tests
 
 # Regenerate the contract after editing pigeons/payment_api.dart
 dart run pigeon --input pigeons/payment_api.dart
@@ -112,9 +112,14 @@ the real change.
   to an exact version; keep the generated output committed.
 - **Public API needs documentation.** `public_member_api_docs` is an analyzer **error**, and the
   analyzer runs with strict casts/inference/raw types.
-- **Payment outcomes are results, technical failures are exceptions.** A decline, a cancelled
-  challenge or a closed wallet sheet is a normal result; only technical problems throw
-  `GatewayException`, always with a stable `GatewayErrorCode`.
+- **Payment outcomes are values; technical failures are exceptions.** Methods return ordinary
+  `Future<T>` values. A decline, cancelled challenge, closed wallet sheet or unavailable wallet
+  is a normal typed outcome; a technical problem throws public `GatewayException` with a stable
+  `GatewayErrorCode`. Apps catch that type at the UI boundary and never display its diagnostics
+  directly to the payer.
+- **A rejection says which field is wrong.** The gateway's `error.cause`, `error.field` and
+  `error.validationType` travel as typed values on `GatewayException` so the app can tell the
+  payer what to fix. `error.explanation` is never forwarded: it can quote the card number.
 - **One gateway operation at a time**, enforced in Dart *and* in both natives with a
   process-wide lock. Whenever a native screen can disappear, make sure the pending operation is
   failed — a held lock blocks every later call for the life of the process.
