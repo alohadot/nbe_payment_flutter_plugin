@@ -94,3 +94,25 @@ internal fun toAuthenticationResult(
         else -> Result.failure(gatewayRequestBridgeError(error))
     }
 }
+
+/**
+ * Outcome for a challenge screen that disappeared without the SDK reporting anything.
+ *
+ * Reported as a normal payment outcome rather than a technical failure: from the payer's side
+ * the challenge was abandoned, which is exactly what [AuthenticationOutcomeMessage.CANCELLED_BY_USER]
+ * means, and apps already handle it. The gateway may not have been told, so the merchant server
+ * must not treat the authentication as usable — which is true of every cancellation.
+ *
+ * Both flags are `true`: this outcome is only produced after a challenge screen was seen.
+ */
+internal fun abandonedChallengeResult(
+    authenticationTransactionId: String,
+): AuthenticationResultMessage = AuthenticationResultMessage(
+    outcome = AuthenticationOutcomeMessage.CANCELLED_BY_USER,
+    authenticationPerformed = true,
+    challengePerformed = true,
+    authenticationTransactionId = authenticationTransactionId,
+    // Never reported by the Android SDK.
+    sdkTransactionId = null,
+    threeDS2TransactionStatus = null,
+)

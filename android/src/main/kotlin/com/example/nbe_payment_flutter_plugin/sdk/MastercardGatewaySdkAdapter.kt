@@ -48,6 +48,11 @@ class MastercardGatewaySdkAdapter(
 
     private val googlePay = GooglePayController(context, activityProvider)
 
+    private val challengeGuard = ChallengeScreenGuard(
+        application = context.applicationContext as? Application,
+        mainHandler = mainHandler,
+    )
+
     override fun initialize(request: InitializeRequestMessage, callback: (Result<Unit>) -> Unit) {
         // The SDK keeps process-wide state that outlives a Flutter hot restart or a second
         // engine, so a repeated initialize must be checked against the SDK, not only Dart.
@@ -258,8 +263,19 @@ class MastercardGatewaySdkAdapter(
             override fun onComplete(response: AuthenticationResponse) {
                 // The bridge answers Flutter from the main thread; do not rely on the SDK's
                 // choice of dispatcher for this callback.
-                runOnMainThread { callback(toAuthenticationResult(response, transactionId)) }
+                runOnMainThread {
+                    challengeGuard.stop()
+                    callback(toAuthenticationResult(response, transactionId))
+                }
             }
+        }
+
+        // The challenge screen belongs to the 3DS SDK: its back button has to be bridged, and
+        // it must never be able to disappear without an outcome, or the gateway lock would be
+        // held for the life of the process. A late answer from the SDK is dropped by the
+        // bridge, which replies to Flutter exactly once.
+        challengeGuard.start(activity) {
+            callback(Result.success(abandonedChallengeResult(transactionId)))
         }
 
         SdkNetworkLogSilencer.silence()
