@@ -91,7 +91,7 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
 
   private func runExclusively<T>(
     _ completion: @escaping (Result<T, Error>) -> Void,
-    _ operation: ((Result<T, Error>) -> Void) -> Void
+    _ operation: (@escaping (Result<T, Error>) -> Void) -> Void
   ) {
     if GatewayOperationLock.isBusy {
       completion(
@@ -113,7 +113,7 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
   /// Replies exactly once, on the main thread.
   private func runOnce<T>(
     _ completion: @escaping (Result<T, Error>) -> Void,
-    _ operation: ((Result<T, Error>) -> Void) -> Void
+    _ operation: (@escaping (Result<T, Error>) -> Void) -> Void
   ) {
     operation(singleReply(completion))
   }
