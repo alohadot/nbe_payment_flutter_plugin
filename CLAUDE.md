@@ -35,13 +35,14 @@ Everything a new session needs is in those files; nothing important lives only i
 | Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
 | Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
-| Google Pay sheet | Not yet run on a device with a Google account |
+| Google Pay | Sheet, token, and `updateSession` verified on an emulator against a real MTF session: availability, the sheet with the session's amount, the token stored under `devicePayment.paymentToken`, and `order.walletProvider = GOOGLE_PAY` accepted. The server `AUTHORIZE` is blocked — merchant `TESTONELYMOSDK` has no `Device Payments` privilege |
 | 3DS challenge (OTP) screen | Not yet triggered: the test card used so far authenticates frictionless. The back button and the screen's task placement were fixed in 0.2.1 from the SDK binary and the merged manifest; still to be confirmed on a device with a challenge card |
 | Docs | README, example README, architecture, decisions, SDK notes, release checklist |
 
 Pending, and blocked on someone else: iOS build on a Mac, Google Pay on a real device, a test
 card that forces a challenge, a test session that already holds a saved card (`card_id`) to
-verify the CVV-only update end to end, the bank enabling the wallets, company name in
+verify the CVV-only update end to end, **the bank enabling the `Device Payments` privilege**
+(blocks every wallet payment at `AUTHORIZE`) and providing the Apple Pay CSR, company name in
 `LICENSE`, the Git repository URL in the docs, reporting the Android SDK logging leak to the
 bank.
 
@@ -149,7 +150,14 @@ Deliberate, with the reason. Do not "fix" one without reading the reason first.
 - **`merchantUrl` accepts `http://`.** It is merchant metadata passed to the Android SDK, not a
   gateway endpoint. Tighten to https only if the bank confirms nothing needs plain http.
 - **`order.walletProvider = GOOGLE_PAY`** is sent with the Google Pay token by symmetry with the
-  iOS guide, which documents `APPLE_PAY`. Still to be confirmed against the gateway.
+  iOS guide, which documents `APPLE_PAY`; the Android guide does not mention the field at all.
+  MTF accepted and stored the value, but `updateSession` does not decrypt the token, so that is
+  not proof. The iOS guide also requires the field on the server's `AUTHORIZE`/`PAY`, not only
+  on the session — the Postman collection now sends it when the `walletProvider` variable is
+  set. Both points are with the bank.
+- **No wallet button ships with the plugin.** Both wallets require their own button, and Google
+  reviews screenshots of it before granting production access. The README points the app at the
+  official assets; a widget was not added because the button belongs to the app's design.
 - **Google Pay allowed authentication methods** (`PAN_ONLY`, `CRYPTOGRAM_3DS`) come from the
   Google Pay API, not from the bank's guide.
 - **Swift Package Manager support** is planned after the first successful iOS build; see
@@ -168,6 +176,14 @@ Deliberate, with the reason. Do not "fix" one without reading the reason first.
 - The Android SDK logs full request bodies (card number, CVV) and the `Authorization` header to
   logcat. `SdkNetworkLogSilencer` switches that off and must keep working after any SDK or
   OkHttp change — verify with a card update in debug **and** release.
+- A wallet payment whose token stored fine can still fail on the server with `Missing merchant
+  privilege 'Device Payments'`. `updateSession` only stores the token without decrypting it, so
+  nothing in the app reveals the missing privilege — and the privilege is per merchant **and
+  per environment**, set by the bank. To tell it apart from an integration bug, run the same
+  `AUTHORIZE` on the same merchant with a manually entered card: if that succeeds, the wallet
+  is the only variable.
+- Gateway sessions expire quickly. A session created while a screen opens and used after the
+  payer decides fails with "Form Session not found or expired".
 - Host apps need `android.enableJetifier=true` (the 3DS SDK uses the legacy support library).
 - The 3DS SDK declares its challenge screen `singleTask` with no `taskAffinity`, so on a host
   whose Activity sets a different affinity (`android:taskAffinity=""`) Android opened it in a

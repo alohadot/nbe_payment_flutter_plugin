@@ -79,6 +79,15 @@ Sessions need the merchant API password, so they are created outside the app.
 The collection also contains the server steps that finish a payment: Retrieve Session,
 Authorize, Capture, Pay, Retrieve Order, Void and Refund. Its description explains the order.
 
+Two things to know before running them:
+
+- **Sessions expire quickly.** Create the session immediately before you use it. A gap of a
+  few minutes ends in `Form Session not found or expired`.
+- **For a wallet payment, set the `walletProvider` collection variable** to `GOOGLE_PAY` or
+  `APPLE_PAY` before Authorize or Pay: the iOS guide requires `order.walletProvider` on the
+  request that completes the payment, not only on the session. Clear it again for a card run —
+  the value sent is printed in the Postman console so a leftover one is visible.
+
 ## Screen overview
 
 | Section | Purpose |
@@ -109,7 +118,7 @@ Card data in the event log is always masked.
 | Server payment | Paste the transaction ID into Postman `authenticationTransactionId` → **4. Authorize** → **5. Capture** → **7. Retrieve Order** | Order `CAPTURED` |
 | One-step payment | New session → card update → authenticate → **6. Pay** | Order `CAPTURED` |
 | Wallet availability | Check available wallet | `googlePay` / `applePay` on a configured device, otherwise `none` |
-| Wallet payment | New session → Pay with device wallet → authorize in the sheet | `SUCCESS: Session updated with …`; then Pay in Postman |
+| Wallet payment | New session → Pay with device wallet → authorize in the sheet | `SUCCESS: Session updated with …`; then set `walletProvider` and run Authorize or Pay in Postman. `Missing merchant privilege 'Device Payments'` there means the bank has not enabled device payments for this merchant — the plugin's part already succeeded. |
 | Wallet cancel | Pay with device wallet → close the sheet | `CANCELLED` |
 
 Error and concurrency scenarios:

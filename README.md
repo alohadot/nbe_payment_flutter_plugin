@@ -263,6 +263,27 @@ if (await gateway.getAvailableWallet(walletRequest) != DeviceWallet.none) {
 }
 ```
 
+Three things belong to the app, not to the plugin:
+
+- **The wallet button.** The plugin ships no widget. Both wallets require their own button, and
+  Google reviews screenshots of yours before granting production access, so use the official
+  assets from the [Google Pay brand guidelines][gpay-brand] and Apple's `PKPaymentButton`
+  rather than a button of your own design.
+- **When the session is created.** Create it when the payer taps the button, not when the
+  screen opens. Gateway sessions expire quickly, and an expired one fails the server call that
+  follows with `Form Session not found or expired`.
+- **`order.walletProvider` on the server request.** The iOS integration guide requires it on
+  the request that *completes* the payment (`AUTHORIZE`/`PAY`), not only on the session:
+  `"APPLE_PAY"` for Apple Pay, `"GOOGLE_PAY"` for Google Pay. The Android guide does not
+  mention the field at all, so this is still to be confirmed with the bank for Google Pay.
+
+The merchant account also needs the **Device Payments** privilege, which only the bank can
+enable and which is set per environment. Without it the session accepts the wallet token
+normally and the payment then fails with `Missing merchant privilege 'Device Payments'`
+(observed in MTF).
+
+[gpay-brand]: https://developers.google.com/pay/api/android/guides/brand-guidelines
+
 ## Public API
 
 `NbePaymentGateway()` always returns the same instance: the native SDKs are process-wide.
@@ -710,6 +731,8 @@ The full pre-release list is in [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLI
 | `uiUnavailable` | The app was in the background or no screen was attached when 3DS or the wallet started. |
 | `getAvailableWallet` returns `none` on an emulator | Google Pay needs Google Play services and a signed-in Google account. Apple Pay needs a card in Wallet (or sandbox). |
 | `walletConfigurationInvalid` on iOS | Missing Apple Pay merchant identifier, or the Apple Pay capability is not configured. |
+| Server `AUTHORIZE`/`PAY`: `Missing merchant privilege 'Device Payments'`, while the same request succeeds for a card | The merchant account is not enabled for device payments. Only the bank can enable it, and MTF and production are enabled separately. The plugin's side of the flow is already complete when this appears: the token is in the session. |
+| Server call: `Form Session not found or expired` | The session timed out. Create the session when the payer starts paying, not when the screen opens. |
 | `missingSessionParameter` | The server did not load order amount/currency or `authentication.*` fields into the session. |
 | Card data visible in logcat | The SDK version or its OkHttp setup changed. Stop using that build and see [Updating the Android native SDK](#updating-the-android-native-sdk). |
 

@@ -63,6 +63,10 @@ which the plugin does not expose because Android has no equivalent.
 HTTP 401 "Authenticated entity not authorised" (observed with a session created on
 `test-gateway.mastercard.com` while the app used MTF).
 
+**Sessions expire quickly.** A session left idle while the payer decides fails the next server
+call with `INVALID_REQUEST` / "Form Session not found or expired" (observed on MTF). The app
+should ask its server for a session when the payer starts paying, not when the screen opens.
+
 ## Threading
 
 | | Android | iOS |
@@ -160,8 +164,19 @@ instead of a string literal.
 - Manual card entry: `sourceOfFunds.provided.card.number`, `.securityCode`, `.expiry.month`,
   `.expiry.year`, `.nameOnCard`.
 - Wallet token: `sourceOfFunds.provided.card.devicePayment.paymentToken`, plus
-  `order.walletProvider` = `APPLE_PAY` (from the iOS guide) or `GOOGLE_PAY` (symmetric; still to
-  be confirmed with the gateway).
+  `order.walletProvider` = `APPLE_PAY` (from the iOS guide) or `GOOGLE_PAY`. The Android guide
+  shows the Google Pay update **without** `walletProvider` at all. MTF accepted and stored
+  `GOOGLE_PAY` (seen in Retrieve Session), but `updateSession` only stores the token — the
+  gateway does not decrypt it there — so acceptance is not proof the value is correct. The iOS
+  guide additionally requires `order.walletProvider` on the request that *completes* the
+  payment (`AUTHORIZE`/`PAY`), not only on the session. Both points are with the bank.
+- **Device payments need the `Device Payments` merchant privilege**, which the bank enables per
+  environment. Without it the wallet flow looks healthy all the way to the session:
+  `updateSession` returns `updateStatus: SUCCESS` and the token is stored, and only the
+  server's `AUTHORIZE` fails, with `INVALID_REQUEST` / "Missing merchant privilege 'Device
+  Payments'". Observed on MTF, merchant `TESTONELYMOSDK`, September 2026; the identical
+  `AUTHORIZE` succeeds on that merchant when the session holds a manually entered card, which
+  is what isolates the privilege as the cause.
 - `GatewayMap` splits keys on `.` and supports array indices with the pattern `(.*)\[(.*)\]`
   (verified in bytecode), so `order.item[0].name` is valid. `GatewayFields` allows exactly that
   shape.

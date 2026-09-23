@@ -14,7 +14,6 @@ import com.example.nbe_payment_flutter_plugin.generated.errorCodeInvalidGatewayR
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeOperationInProgress
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeUiUnavailable
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletConfigurationInvalid
-import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletConfigurationInvalid
 import com.example.nbe_payment_flutter_plugin.generated.errorCodeWalletFailed
 import com.google.android.gms.common.api.Status
 import com.google.android.gms.wallet.IsReadyToPayRequest

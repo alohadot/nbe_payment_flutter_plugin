@@ -20,6 +20,7 @@
     { "key": "sessionId", "value": "" },
     { "key": "orderId", "value": "" },
     { "key": "authenticationTransactionId", "value": "" },
+    { "key": "walletProvider", "value": "" },
     { "key": "authorizeTransactionId", "value": "" },
     { "key": "fundsTransactionId", "value": "" }
   ],
@@ -164,6 +165,10 @@
             "exec": [
               "const transactionId = 'TXN-AUTHORIZE-' + Date.now();",
               "pm.collectionVariables.set('authorizeTransactionId', transactionId);",
+              "// Also set locally: a local variable wins over an empty variable of the same name in",
+              "// an environment, which would otherwise leave the id out of the URL and the gateway",
+              "// answers \"After url path .../transaction, expected /{transactionid}\".",
+              "pm.variables.set('authorizeTransactionId', transactionId);",
               "",
               "const body = {",
               "  apiOperation: 'AUTHORIZE',",
@@ -174,6 +179,16 @@
               "  },",
               "  sourceOfFunds: { type: 'CARD' },",
               "};",
+              "",
+              "// Wallet payments: the iOS integration guide requires order.walletProvider on the",
+              "// request that completes the payment, not only on the session. Set the walletProvider",
+              "// collection variable to GOOGLE_PAY or APPLE_PAY for a wallet session, and clear it",
+              "// for a card. Its value is logged so a leftover one cannot go unnoticed.",
+              "const walletProvider = pm.collectionVariables.get('walletProvider');",
+              "if (walletProvider) {",
+              "  body.order.walletProvider = walletProvider;",
+              "}",
+              "console.log('walletProvider sent:', walletProvider || '(none)');",
               "",
               "// Links the 3-D Secure result produced by the app. Omitted until the app provides it.",
               "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
@@ -227,7 +242,10 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.collectionVariables.set('fundsTransactionId', 'TXN-CAPTURE-' + Date.now());"
+              "const transactionId = 'TXN-CAPTURE-' + Date.now();",
+              "pm.collectionVariables.set('fundsTransactionId', transactionId);",
+              "// Also set locally, for the same reason as in 4. Authorize.",
+              "pm.variables.set('fundsTransactionId', transactionId);"
             ]
           }
         },
@@ -277,6 +295,8 @@
             "exec": [
               "const transactionId = 'TXN-PAY-' + Date.now();",
               "pm.collectionVariables.set('fundsTransactionId', transactionId);",
+              "// Also set locally, for the same reason as in 4. Authorize.",
+              "pm.variables.set('fundsTransactionId', transactionId);",
               "",
               "const body = {",
               "  apiOperation: 'PAY',",
@@ -287,6 +307,13 @@
               "  },",
               "  sourceOfFunds: { type: 'CARD' },",
               "};",
+              "",
+              "// See 4. Authorize: wallet payments need order.walletProvider here too.",
+              "const walletProvider = pm.collectionVariables.get('walletProvider');",
+              "if (walletProvider) {",
+              "  body.order.walletProvider = walletProvider;",
+              "}",
+              "console.log('walletProvider sent:', walletProvider || '(none)');",
               "",
               "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
               "if (authenticationTransactionId) {",
