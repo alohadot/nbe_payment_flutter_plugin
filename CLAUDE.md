@@ -31,12 +31,12 @@ Everything a new session needs is in those files; nothing important lives only i
 
 | Area | State |
 |---|---|
-| Dart layer | Complete, 183 unit tests |
+| Dart layer | Complete, 185 unit tests |
 | Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
 | Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
 | Google Pay sheet | Not yet run on a device with a Google account |
-| 3DS challenge (OTP) screen | Not yet triggered: the test card used so far authenticates frictionless |
+| 3DS challenge (OTP) screen | Not yet triggered: the test card used so far authenticates frictionless. The back button and the screen's task placement were fixed in 0.2.1 from the SDK binary and the merged manifest; still to be confirmed on a device with a challenge card |
 | Docs | README, example README, architecture, decisions, SDK notes, release checklist |
 
 Pending, and blocked on someone else: iOS build on a Mac, Google Pay on a real device, a test
@@ -66,7 +66,7 @@ doc/                  architecture, decisions, SDK notes, release checklist
 ```sh
 # Dart
 flutter analyze
-flutter test                     # 183 tests
+flutter test                     # 185 tests
 
 # Regenerate the contract after editing pigeons/payment_api.dart
 dart run pigeon --input pigeons/payment_api.dart
@@ -169,6 +169,11 @@ Deliberate, with the reason. Do not "fix" one without reading the reason first.
   logcat. `SdkNetworkLogSilencer` switches that off and must keep working after any SDK or
   OkHttp change — verify with a card update in debug **and** release.
 - Host apps need `android.enableJetifier=true` (the 3DS SDK uses the legacy support library).
+- The 3DS SDK declares its challenge screen `singleTask` with no `taskAffinity`, so on a host
+  whose Activity sets a different affinity (`android:taskAffinity=""`) Android opened it in a
+  task of its own: a second card in recents, and back moved that task to the background instead
+  of cancelling, holding the gateway lock forever. The plugin manifest replaces the launch mode
+  with `standard`. Do not drop that override, and re-check it after a 3DS SDK upgrade.
 - Request code `10001` belongs to the Gateway SDK's Google Pay sheet.
 - The native SDKs stay initialized for the whole process: after a hot restart Dart thinks it is
   not initialized while the native side is. Only the merchant identity is fixed per process;

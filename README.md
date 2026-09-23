@@ -516,6 +516,10 @@ around those futures (the example app does this for its event log).
   Activity. The bundled 3DS SDK's challenge Activity does not declare it, and the plugin cannot
   cancel an authentication that is already running inside the SDK, so an Activity recreation in
   the middle of one can fail the challenge.
+- **Back on the 3-D Secure screen is a cancellation**: the SDK tells the issuer, and the call
+  returns `AuthenticationOutcome.cancelledByUser`. The screen belongs to the 3DS SDK, and the
+  plugin overrides its launch mode so that it opens inside your app's own task. Nothing is
+  required of the host app, whatever `android:taskAffinity` its Activity declares.
 - **Request code `10001` is reserved** by the Gateway SDK for the Google Pay sheet. Do not use
   it for your own `startActivityForResult` calls while a wallet payment is running.
 - Release builds rely on `android/consumer-rules.pro`. Without it every gateway call fails
@@ -702,6 +706,7 @@ The full pre-release list is in [`doc/RELEASE_CHECKLIST.md`](doc/RELEASE_CHECKLI
 | `alreadyInitialized` after changing merchant or region | The native SDK stays initialized for the process lifetime. Restart the app. |
 | Android build: manifest merger `appComponentFactory` or duplicate classes | Add `android.enableJetifier=true`. |
 | Android release only: `unknown` with `nativeDetails: ClassCastException` | `consumer-rules.pro` not applied (e.g. a custom build that ignores consumer rules). Add the three rules to the app's R8 configuration. |
+| `operationInProgress` on every call after the payer left the 3-D Secure screen, and that screen showed as a second app in the recents list | Fixed in 0.2.1. The 3DS SDK declares its challenge screen `singleTask`, so it opened in a task of its own whenever the host Activity declared a different `android:taskAffinity`; back then moved that task to the background instead of cancelling, and the operation never ended. Upgrade the plugin; no change is needed in the app. |
 | `uiUnavailable` | The app was in the background or no screen was attached when 3DS or the wallet started. |
 | `getAvailableWallet` returns `none` on an emulator | Google Pay needs Google Play services and a signed-in Google account. Apple Pay needs a card in Wallet (or sandbox). |
 | `walletConfigurationInvalid` on iOS | Missing Apple Pay merchant identifier, or the Apple Pay capability is not configured. |

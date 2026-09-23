@@ -1,5 +1,6 @@
 <!-- The library namespace is declared in build.gradle.kts, not here. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- The Gateway SDK manifests do not declare it, and Flutter templates only add it to
          debug/profile builds, so release apps would fail to reach the gateway without it. -->
@@ -10,5 +11,31 @@
         <meta-data
             android:name="com.google.android.gms.wallet.api.enabled"
             android:value="true" />
+
+        <!--
+            The 3DS SDK declares its challenge screen as `android:launchMode="singleTask"` with
+            no `android:taskAffinity`, so the screen inherits the host application's package as
+            its affinity. A `singleTask` Activity always runs at the root of a task with its own
+            affinity, so a host Activity that declares a different one — `android:taskAffinity=""`
+            is the common case — can never share a task with it, and Android is forced to put the
+            challenge in a task of its own. Two things break when that happens:
+
+            * the challenge shows up as a second entry in the recents list, a card of its own
+              that looks like a second copy of the app (black, because the screen is FLAG_SECURE);
+            * back on the root Activity of a task moves the task to the background on Android 12
+              and later instead of closing it, so `ChallengeActivity.onBackPressed` — which is
+              where the SDK sends the issuer a cardholder cancellation — never runs, no outcome
+              ever arrives, and the gateway lock is held for the life of the process.
+
+            `standard` puts the screen in the task of the Activity that started it, whatever
+            affinity the host declares, so the challenge is part of the host app and back reaches
+            the SDK's own cancel. Verified against the bundled SDK: it opens the screen with a
+            plain `startActivity(Intent(context, ChallengeActivity.class))` and no intent flags,
+            and the screen declares no `onNewIntent`, so nothing depends on `singleTask`.
+        -->
+        <activity
+            android:name="com.usdk.android.ChallengeActivity"
+            android:launchMode="standard"
+            tools:replace="android:launchMode" />
     </application>
 </manifest>

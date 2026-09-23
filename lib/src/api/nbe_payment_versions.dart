@@ -4,7 +4,7 @@
 /// test/api/nbe_payment_versions_test.dart.
 abstract final class NbePaymentVersions {
   /// Version of this plugin, as in pubspec.yaml.
-  static const String plugin = '0.2.0';
+  static const String plugin = '0.2.1';
 
   /// Mastercard Gateway Android SDK bundled in `android/gateway-repo`.
   static const String androidGatewaySdk = '2.0.17';

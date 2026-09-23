@@ -148,6 +148,83 @@ internal class ChallengeWatchdogTest {
         assertEquals(2, strandedCount)
     }
 
+    @Test
+    fun `reports a challenge screen the system moved to the background`() {
+        openChallengeScreen()
+
+        // Back on the root of a task hides the screen without destroying it, and the app the
+        // payer came from is in front again.
+        watchdog.onHostScreenResumed()
+        watchdog.onChallengeScreenHidden()
+
+        elapseGracePeriod()
+        assertEquals(1, strandedCount, "an alive but abandoned challenge must not hold the lock")
+    }
+
+    @Test
+    fun `reports it whichever way round the two screens are reported`() {
+        openChallengeScreen()
+
+        watchdog.onChallengeScreenHidden()
+        assertTrue(scheduled.isEmpty(), "the payer may be reading the code in another app")
+        watchdog.onHostScreenResumed()
+
+        elapseGracePeriod()
+        assertEquals(1, strandedCount)
+    }
+
+    @Test
+    fun `reports nothing while the payer is in another app`() {
+        openChallengeScreen()
+        watchdog.onChallengeScreenHidden()
+
+        elapseGracePeriod()
+        assertEquals(0, strandedCount, "a one-time code is often read in a messaging app")
+    }
+
+    @Test
+    fun `reports nothing when the payer returns to the challenge during the grace period`() {
+        openChallengeScreen()
+        watchdog.onHostScreenResumed()
+        watchdog.onChallengeScreenHidden()
+
+        watchdog.onChallengeScreenShown()
+        elapseGracePeriod()
+        assertEquals(0, strandedCount)
+    }
+
+    @Test
+    fun `reports nothing when the host screen resumes with no challenge screen shown`() {
+        watchdog.start()
+        watchdog.onHostScreenResumed()
+
+        elapseGracePeriod()
+        assertEquals(0, strandedCount, "a frictionless authentication shows no screen")
+    }
+
+    @Test
+    fun `keeps watching while a second screen is still visible`() {
+        openChallengeScreen()
+        watchdog.onChallengeScreenShown()
+
+        watchdog.onHostScreenResumed()
+        watchdog.onChallengeScreenHidden()
+        elapseGracePeriod()
+        assertEquals(0, strandedCount)
+
+        watchdog.onChallengeScreenHidden()
+        elapseGracePeriod()
+        assertEquals(1, strandedCount)
+    }
+
+    /** Brings one challenge screen to the front, the way the SDK does. */
+    private fun openChallengeScreen() {
+        watchdog.start()
+        watchdog.onHostScreenPaused()
+        watchdog.onChallengeScreenOpened()
+        watchdog.onChallengeScreenShown()
+    }
+
     private companion object {
         const val GRACE = 2_000L
     }

@@ -77,8 +77,10 @@ SDK's choice.
 
 - **Android**: `AuthenticationHandler.authenticate` needs an `android.app.Activity` (a plain
   `Activity` is enough; `FlutterActivity` works). The challenge runs in the 3DS SDK's own
-  `com.usdk.android.ChallengeActivity` (`singleTask`, and it declares **no**
-  `android:configChanges`). A progress dialog is shown on the passed Activity.
+  `com.usdk.android.ChallengeActivity`, which declares **no** `android:configChanges`, so a
+  rotation recreates it. A progress dialog is shown on the passed Activity. Its launch mode and
+  the task it lands in need care of their own: see "The challenge screen's task and back button"
+  below.
 - **iOS**: `AuthenticationRequest` needs a `UINavigationController`. Flutter apps have none, so
   the plugin presents a transparent one over the top-most visible view controller for the
   duration. The SDK's release notes changed "Navigation Control for Challenge Flow" in 2.0.13,
@@ -90,6 +92,37 @@ SDK's choice.
   consumed without a callback, so the plugin detects that case itself.
 - **Apple Pay**: the iOS SDK has no helper at all. The plugin implements the PassKit flow and
   only hands the token to `updateSession`.
+
+## The challenge screen's task and back button (Android)
+
+Established by reading `AndroidManifest.xml` and disassembling the classes inside
+`gateway-android-3ds-6.7.60.aar`.
+
+- The SDK declares the screen as `android:launchMode="singleTask"` and sets **no**
+  `android:taskAffinity`, so its affinity is the host application's package name. A `singleTask`
+  Activity always runs at the root of a task carrying its own affinity, so a host Activity that
+  declares a different one — `android:taskAffinity=""` is the common case — can never share a
+  task with the challenge, and Android is forced to open it in a task of its own. Two things
+  break then: the challenge appears as a second card in the recents list (blank, see
+  `FLAG_SECURE` below), and back on the root Activity of a task moves that task to the
+  background on Android 12 and later instead of closing it, so the SDK's cancel never runs and
+  no outcome ever arrives. The plugin's own `android/src/main/AndroidManifest.xml` replaces the
+  launch mode with `standard`.
+- The SDK opens the screen with a plain `startActivity(Intent(context, ChallengeActivity.class))`
+  and **no intent flags**, from the Activity handed to `authenticate`. `standard` therefore puts
+  it in that Activity's task whatever affinity the host declares.
+- `ChallengeActivity` declares no `onNewIntent`, so nothing in the SDK depends on `singleTask`.
+- `ChallengeActivity.onBackPressed` calls the SDK's own cancel, which logs "User canceled
+  challenging", sends the issuer `CANCEL_BY_CARDHOLDER`, and only then closes the screen and
+  answers through the authentication callback. Back is a proper cancellation — provided that
+  method is reached.
+- The screen implements the legacy `onBackPressed` only: its classes contain no reference to
+  `OnBackInvoked`. An app that turns predictive back on (`android:enableOnBackInvokedCallback`,
+  or a target SDK new enough to get it without asking) would stop the method being called at
+  all, which is why `ChallengeScreenGuard` registers a callback on the new dispatcher that
+  calls it.
+- The screen sets `FLAG_SECURE` on its window (`setFlags(8192, 8192)` in `onCreate`), so its
+  recents thumbnail and any screenshot of it are blank.
 
 ## Security findings
 

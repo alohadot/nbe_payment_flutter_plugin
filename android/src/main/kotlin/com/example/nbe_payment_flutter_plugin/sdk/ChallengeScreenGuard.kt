@@ -26,8 +26,10 @@ import java.lang.ref.WeakReference
  *    is exactly what the SDK expects. Devices below API 33 keep the legacy path and need no
  *    bridge.
  *
- * 2. **A stranded operation.** Whatever the reason a challenge screen goes away without an
- *    answer, [ChallengeWatchdog] fails the operation so the gateway lock is released.
+ * 2. **A stranded operation.** Whatever the reason a challenge screen stops being the payer's
+ *    screen, [ChallengeWatchdog] fails the operation so the gateway lock is released. Lifecycle
+ *    is reported to it in full — created, started, stopped, destroyed — because a challenge can
+ *    be abandoned without ever being destroyed; see that class for which combination means what.
  *
  * The back bridge is limited to the 3DS SDK's own package: a host app's screens must keep their
  * own back behavior. The watchdog is deliberately broader — it counts every screen that is not
@@ -43,7 +45,7 @@ internal class ChallengeScreenGuard(
     private val watchdog = ChallengeWatchdog(
         graceMillis = GRACE_MILLIS,
         schedule = { delayMillis, action -> mainHandler.postDelayed(action, delayMillis) },
-        onStranded = { onStranded?.invoke() },
+        onStranded = ::reportStranded,
     )
 
     // Weak: the guard outlives a host Activity that goes away mid-authentication, and the
@@ -89,17 +91,40 @@ internal class ChallengeScreenGuard(
         addBackBridge(activity)
     }
 
+    override fun onActivityStarted(activity: Activity) {
+        if (activity === hostActivity?.get()) return
+        watchdog.onChallengeScreenShown()
+    }
+
+    override fun onActivityResumed(activity: Activity) {
+        if (activity !== hostActivity?.get()) return
+        watchdog.onHostScreenResumed()
+    }
+
+    override fun onActivityPaused(activity: Activity) {
+        if (activity !== hostActivity?.get()) return
+        watchdog.onHostScreenPaused()
+    }
+
+    override fun onActivityStopped(activity: Activity) {
+        if (activity === hostActivity?.get()) return
+        watchdog.onChallengeScreenHidden()
+    }
+
     override fun onActivityDestroyed(activity: Activity) {
         if (activity === hostActivity?.get()) return
         removeBackBridge(activity)
         watchdog.onChallengeScreenClosed(activity.isChangingConfigurations)
     }
 
-    override fun onActivityStarted(activity: Activity) = Unit
-    override fun onActivityResumed(activity: Activity) = Unit
-    override fun onActivityPaused(activity: Activity) = Unit
-    override fun onActivityStopped(activity: Activity) = Unit
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+    /** Releases everything this guard holds before the operation is failed. */
+    private fun reportStranded() {
+        val callback = onStranded
+        stop()
+        callback?.invoke()
+    }
 
     private fun addBackBridge(activity: Activity) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
@@ -130,9 +155,9 @@ internal class ChallengeScreenGuard(
         const val CHALLENGE_SDK_PACKAGE = "com.usdk.android."
 
         /**
-         * Long enough for the SDK to answer after it closes its own screen, short enough that a
-         * payer who pressed back is not left waiting. The SDK answers immediately in practice;
-         * this only covers the ordering between the screen closing and the callback.
+         * Long enough for the SDK to answer after the challenge screen goes away, short enough
+         * that a payer who pressed back is not left waiting. The SDK answers immediately in
+         * practice; this only covers the ordering between the screen going and the callback.
          */
         const val GRACE_MILLIS = 2_000L
     }
