@@ -33,7 +33,7 @@ Everything a new session needs is in those files; nothing important lives only i
 |---|---|
 | Dart layer | Complete, 185 unit tests |
 | Android | Complete: initialize, card update, security-code-only update, 3DS, Google Pay. Verified on an emulator in debug **and** release, with a real MTF session (card update + 3DS + server Authorize/Capture) |
-| Saved card (CVV only) | `updateSessionWithSecurityCode` written and unit tested on both layers; not yet run against a real session holding a saved card |
+| Saved card | Two cases, chosen by the merchant's contract (README "Paying with a saved card"). **Card on file** (our agreement with NBE): no card call, `authenticatePayer` directly on a session holding the token; no plugin code needed. **CVV required**: `updateSessionWithSecurityCode`, written and unit tested on both layers, kept for other merchants. Neither run yet against a real session holding a token |
 | iOS | Written, **never compiled** (development machine is Windows). Verification steps: `example/IOS_TESTING.md` |
 | Google Pay | Sheet, token, and `updateSession` verified on an emulator against a real MTF session: availability, the sheet with the session's amount, the token stored under `devicePayment.paymentToken`, and `order.walletProvider = GOOGLE_PAY` accepted. The server `AUTHORIZE` is blocked — merchant `TESTONELYMOSDK` has no `Device Payments` privilege |
 | 3DS challenge (OTP) screen | Not yet triggered: the test card used so far authenticates frictionless. The back button and the screen's task placement were fixed in 0.2.1 from the SDK binary and the merged manifest; still to be confirmed on a device with a challenge card |
@@ -41,7 +41,8 @@ Everything a new session needs is in those files; nothing important lives only i
 
 Pending, and blocked on someone else: iOS build on a Mac, Google Pay on a real device, a test
 card that forces a challenge, a test session that already holds a saved card (`card_id`) to
-verify the CVV-only update end to end, **the bank enabling the `Device Payments` privilege**
+verify the card-on-file payment end to end (token, no CVV, 3DS, PAY with
+`storedOnFile = STORED`) and the server field names for our API version, **the bank enabling the `Device Payments` privilege**
 (blocks every wallet payment at `AUTHORIZE`) and providing the Apple Pay CSR, company name in
 `LICENSE`, the Git repository URL in the docs, reporting the Android SDK logging leak to the
 bank.
@@ -165,6 +166,12 @@ Deliberate, with the reason. Do not "fix" one without reading the reason first.
 - **Android instrumentation tests** do not exist: the same ground is covered by the Flutter
   integration tests, which run against the real SDK on a device.
 - **Continuous integration** is not set up (the owner asked to skip it for now).
+
+- **`updateSessionWithSecurityCode` stays although our merchant does not use it.** NBE agreed
+  card on file with us, so saved-card payments need no CVV. The plugin is shared by every
+  merchant, and another one may have a contract that requires the CVV on saved cards. Never
+  remove the method or describe the CVV as always required or never required: it depends on
+  the contract (`doc/DECISIONS.md` §18).
 
 ## Traps found the hard way
 

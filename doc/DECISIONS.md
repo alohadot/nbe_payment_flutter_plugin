@@ -144,10 +144,19 @@ Jetifier on Android.
 
 ## 18. A typed CVV-only update, while `sourceOfFunds` stays reserved
 
-A card saved by the merchant server is put into the session by the server, as a token. The
-gateway still refuses a card payment without a security code, and a saved card never carries
-one, so exactly one field has to be added from the app:
-`sourceOfFunds.provided.card.securityCode`.
+A card saved by the merchant server is put into the session by the server, as a token. A saved
+card never carries a security code. Whether the gateway then accepts the payment is a matter
+of the merchant's contract with the bank:
+
+- **Card on file** (stored credentials): token payments go through without a security code.
+  The app has no card step at all and calls `authenticatePayer` directly. This is the
+  agreement the first consuming app has with NBE.
+- **Security code required** on every card payment: the payer types the CVV and exactly one
+  field has to be added from the app, `sourceOfFunds.provided.card.securityCode`.
+
+The plugin is shared by every merchant, so it supports both: the method below exists for the
+second case and is simply not called in the first. Do not remove it because one merchant does
+not need it.
 
 Three ways were possible; the third was chosen.
 
@@ -164,10 +173,10 @@ The security code crosses the channel as a plain method parameter, not inside a 
 Pigeon's generated classes print every field in `toString` (decision 3), and a parameter has no
 `toString` to leak.
 
-The same reasoning makes `CardDetails.securityCode` required (it was optional). The gateway
-refuses a card payment without it, so an absent code could only turn into a failed PAY on the
-server, far from the cause. The saved-card case, which was the one legitimate reason to omit
-it, now has its own method.
+`CardDetails.securityCode` is required (it was optional). A card the payer types is always sent
+with its CVV, and an absent one could only turn into a failed PAY on the server, far from the
+cause. The saved-card case, which was the one legitimate reason to omit it, never goes through
+`CardDetails`: it uses no card call (card on file) or `updateSessionWithSecurityCode`.
 
 Not enforced by the plugin: `updateSessionWithSecurityCode` must run *after* the server has put
 the card in the session. The plugin cannot see what the server does with the session, so this

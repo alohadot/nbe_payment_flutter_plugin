@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "NBE Plugin - MTF Payment Flow",
-    "description": "Merchant-server side of a payment made with the nbe_payment_flutter_plugin example app, against the Mastercard Gateway test environment (MTF).\n\nSETUP\n1. Create a Postman environment with `merchantId` and `apiPassword` (type: secret). Never save the API password in this collection or commit it.\n2. `baseUrl` must be the host of the region selected in the app. The SDK region MTF uses https://mtf.gateway.mastercard.com. A session created on another host is rejected by the app with 401.\n3. `apiVersion` must be the same in Postman and in the app (minimum 61).\n\nFLOW A - Authorize then Capture\n1 Create Session → 2 Update Session → app: Initialize + Update session with card (+ Authenticate payer when available, then paste its transaction id into `authenticationTransactionId`) → 3 Retrieve Session → 4 Authorize → 5 Capture → 7 Retrieve Order → 9 Refund (optional).\nTo cancel instead of capturing: 4 Authorize → 8 Void.\n\nFLOW B - Pay in one step\nStart with a new session (run 1 and 2 again) → app: Update session with card → 6 Pay → 7 Retrieve Order → 9 Refund (optional).\n\n3-D SECURE\nLeave `authenticationTransactionId` empty until payer authentication is implemented in the app. The field is then omitted; the gateway may decline or proceed depending on the merchant's 3DS configuration.\n\nAll requests follow the Gateway API reference (version 100): Session: Create/Update/Retrieve Session, Transaction: Authorize, Capture, Pay, Void, Refund, Retrieve Order.",
+    "description": "Merchant-server side of a payment made with the nbe_payment_flutter_plugin example app, against the Mastercard Gateway test environment (MTF).\n\nSETUP\n1. Create a Postman environment with `merchantId` and `apiPassword` (type: secret). Never save the API password in this collection or commit it.\n2. `baseUrl` must be the host of the region selected in the app. The SDK region MTF uses https://mtf.gateway.mastercard.com. A session created on another host is rejected by the app with 401.\n3. `apiVersion` must be the same in Postman and in the app (minimum 61).\n\nFLOW A - Authorize then Capture\n1 Create Session → 2 Update Session → app: Initialize + Update session with card (+ Authenticate payer when available, then paste its transaction id into `authenticationTransactionId`) → 3 Retrieve Session → 4 Authorize → 5 Capture → 7 Retrieve Order → 9 Refund (optional).\nTo cancel instead of capturing: 4 Authorize → 8 Void.\n\nFLOW B - Pay in one step\nStart with a new session (run 1 and 2 again) → app: Update session with card → 6 Pay → 7 Retrieve Order → 9 Refund (optional).\n\nFLOW C - Saved card (card on file)\nSave: a normal card payment (1, 2, app card update + Authenticate payer) → set `storedOnFile` = TO_BE_STORED → 6 Pay → 10 Create Token (stores `savedCardToken`).\nPay later: 1 → 2 → 2b Put saved card in session → app: NO card step, just Authenticate payer (it may still show the OTP screen) → set `storedOnFile` = STORED → 6 Pay.\nIf the gateway rejects the payment for a missing security code, the merchant's contract requires the CVV on saved cards: run the app's 'Update session with security code' after 2b and before Authenticate payer.\nClear `storedOnFile` again for an ordinary card payment. The token and stored-on-file field names come from the Gateway API reference; confirm them with the bank for your API version. FLOW C has not been run against MTF yet.\n\n3-D SECURE\nLeave `authenticationTransactionId` empty until payer authentication is implemented in the app. The field is then omitted; the gateway may decline or proceed depending on the merchant's 3DS configuration.\n\nAll requests follow the Gateway API reference (version 100): Session: Create/Update/Retrieve Session, Transaction: Authorize, Capture, Pay, Void, Refund, Retrieve Order.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -21,6 +21,8 @@
     { "key": "orderId", "value": "" },
     { "key": "authenticationTransactionId", "value": "" },
     { "key": "walletProvider", "value": "" },
+    { "key": "savedCardToken", "value": "" },
+    { "key": "storedOnFile", "value": "" },
     { "key": "authorizeTransactionId", "value": "" },
     { "key": "fundsTransactionId", "value": "" }
   ],
@@ -123,6 +125,50 @@
       }
     },
     {
+      "name": "2b. Put saved card in session (card on file)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('savedCardToken')) {",
+              "  throw new Error('savedCardToken is empty - save a card first with 10. Create Token');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Saved card put in session', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(body.session.updateStatus).to.eql('SUCCESS');",
+              "});",
+              "console.log('Session holds the saved card. In the app: skip the card step and run Authenticate payer (card on file), or add the CVV first if the contract requires it.');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sourceOfFunds\": {\n    \"type\": \"CARD\",\n    \"token\": \"{{savedCardToken}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/session/{{sessionId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "session", "{{sessionId}}"]
+        }
+      }
+    },
+    {
       "name": "3. Retrieve Session (verify card stored by the app)",
       "event": [
         {
@@ -189,6 +235,14 @@
               "  body.order.walletProvider = walletProvider;",
               "}",
               "console.log('walletProvider sent:', walletProvider || '(none)');",
+              "",
+              "// Saved cards (FLOW C): TO_BE_STORED on the payment that saves the card, STORED on a",
+              "// payment with the token. Empty for an ordinary card payment.",
+              "const storedOnFile = pm.collectionVariables.get('storedOnFile');",
+              "if (storedOnFile) {",
+              "  body.sourceOfFunds.provided = { card: { storedOnFile } };",
+              "}",
+              "console.log('storedOnFile sent:', storedOnFile || '(none)');",
               "",
               "// Links the 3-D Secure result produced by the app. Omitted until the app provides it.",
               "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
@@ -314,6 +368,13 @@
               "  body.order.walletProvider = walletProvider;",
               "}",
               "console.log('walletProvider sent:', walletProvider || '(none)');",
+              "",
+              "// See 4. Authorize: saved cards need storedOnFile here too.",
+              "const storedOnFile = pm.collectionVariables.get('storedOnFile');",
+              "if (storedOnFile) {",
+              "  body.sourceOfFunds.provided = { card: { storedOnFile } };",
+              "}",
+              "console.log('storedOnFile sent:', storedOnFile || '(none)');",
               "",
               "const authenticationTransactionId = pm.collectionVariables.get('authenticationTransactionId');",
               "if (authenticationTransactionId) {",
@@ -476,6 +537,45 @@
           "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/order/{{orderId}}/transaction/{{refundTransactionId}}",
           "host": ["{{baseUrl}}"],
           "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "order", "{{orderId}}", "transaction", "{{refundTransactionId}}"]
+        }
+      }
+    },
+    {
+      "name": "10. Create Token (save the card from the current session)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Token created', () => {",
+              "  pm.expect(body.result).to.eql('SUCCESS');",
+              "  pm.expect(body.token).to.be.a('string');",
+              "});",
+              "",
+              "if (body.token) {",
+              "  pm.collectionVariables.set('savedCardToken', body.token);",
+              "  // The gateway returns the card number masked; the token itself is not a card number.",
+              "  const card = body.sourceOfFunds && body.sourceOfFunds.provided && body.sourceOfFunds.provided.card;",
+              "  console.log('Saved card token:', body.token, 'card', card && card.number);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {\n    \"id\": \"{{sessionId}}\"\n  },\n  \"sourceOfFunds\": {\n    \"type\": \"CARD\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rest/version/{{apiVersion}}/merchant/{{merchantId}}/token",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rest", "version", "{{apiVersion}}", "merchant", "{{merchantId}}", "token"]
         }
       }
     }

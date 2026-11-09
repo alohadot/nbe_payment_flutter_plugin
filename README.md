@@ -58,7 +58,9 @@ What the plugin does **not** do, by design of the gateway:
 - It does not create sessions and does not charge the card. Session creation and the final
   `PAY` / `AUTHORIZE` + `CAPTURE` calls need the merchant API password and must run on your
   server.
-- Tokenization (card on file) is a server operation on a session updated by the plugin.
+- Tokenization (card on file) is a server operation on a session updated by the plugin. Paying
+  later with the saved card needs no card step in the app, or only the CVV, depending on the
+  merchant's contract; see [Paying with a saved card](#paying-with-a-saved-card).
 
 > **iOS status:** the iOS implementation has not been compiled and verified on a Mac yet. See
 > [`example/IOS_TESTING.md`](example/IOS_TESTING.md).
@@ -145,7 +147,8 @@ Your server     Create Session + Update Session (order, amount, currency, 3DS se
 App (plugin)    initialize (once)
                      ▼
 App (plugin)    updateSessionWithCard  ─or─  payWithDeviceWallet
-                ─or─  updateSessionWithSecurityCode  (saved card, see below)
+                ─or─  saved card: nothing (card on file)
+                      or updateSessionWithSecurityCode (CVV required by contract), see below
                      ▼
 App (plugin)    authenticatePayer  → may show the issuer OTP screen
                      │  returns authenticationTransactionId
@@ -223,15 +226,62 @@ try {
 
 ### Paying with a saved card
 
-A card your server saved for the payer (a token) is put into the session by the server, not by
-the app. The gateway still refuses a card payment without a security code, and a saved card
-never carries one, so the payer types the CVV and the app adds that single field:
+A saved card is a **gateway token** held by your server. The server creates the token from a
+session the app filled once, and later puts that token into a new session. The app never sees
+the card number, and the plugin never touches the token.
+
+**Whether the payer must type the CVV again is set by your merchant's contract with the bank,
+not by the plugin.** A saved card never carries a security code (PCI forbids storing it), so
+there are two cases. Ask the bank which one your merchant profile is configured for:
+
+| Your agreement with the bank | Does the payer type the CVV? | App calls |
+|---|---|---|
+| **Card on file** (stored credentials): token payments are accepted without a security code | No | `authenticatePayer` only |
+| **CVV required** on every card payment, saved cards included | Yes | `updateSessionWithSecurityCode`, then `authenticatePayer` |
+
+In **both** cases the payment goes through 3-D Secure: every payment the payer starts from the
+app is a cardholder-initiated transaction. The issuer decides whether it passes frictionless
+or shows the OTP screen. A saved card makes frictionless more likely, but nothing guarantees
+it, so the app must always be ready for the challenge screen. (A charge your server makes with
+the payer absent, such as a subscription renewal, is a merchant-initiated transaction: no app,
+no 3-D Secure, and a separate agreement with the bank. The plugin plays no part in it.)
+
+#### First payment: saving the card
 
 ```dart
-// 1. Your server creates the session AND puts the saved card in it (card_id / token).
+// 1. The payer types the full card, CVV included, exactly as in a normal payment.
+await gateway.updateSessionWithCard(session, card);
+
+// 2. 3-D Secure. The first payment with a new card often shows the OTP screen.
+final authentication = await gateway.authenticatePayer(session);
+
+// 3. Your server pays, marking the card as one to be stored
+//    (sourceOfFunds.provided.card.storedOnFile = TO_BE_STORED), and creates a token from the
+//    same session (Tokenization: "Create or Update Token"). It keeps the token and shows
+//    the payer only the masked number.
+await myServer.payAndSaveCard(session.id, authentication);
+```
+
+#### Later payments, card on file (no CVV)
+
+```dart
+// 1. The payer picks a saved card. Your server creates the session and puts the token in it
+//    (sourceOfFunds.token), plus the usual order and 3-D Secure fields.
 final session = await myServer.createSessionWithSavedCard(cardId);
 
-// 2. Ask the payer for the CVV and add it to the session. The saved card is left untouched:
+// 2. No card step at all: go straight to 3-D Secure. It may still show the OTP screen.
+final authentication = await gateway.authenticatePayer(session);
+
+// 3. Your server pays with storedOnFile = STORED and the authentication transaction id.
+```
+
+#### Later payments, CVV required by the merchant's contract
+
+```dart
+// 1. Same as above: the server puts the token in the session.
+final session = await myServer.createSessionWithSavedCard(cardId);
+
+// 2. Ask the payer for the CVV and add only that field. The saved card is left untouched:
 //    only sourceOfFunds.provided.card.securityCode is sent.
 await gateway.updateSessionWithSecurityCode(session, cvv);
 
@@ -239,12 +289,21 @@ await gateway.updateSessionWithSecurityCode(session, cvv);
 final authentication = await gateway.authenticatePayer(session);
 ```
 
-Order matters: call `updateSessionWithSecurityCode` **after** the server has put the card in
-the session. A server update that runs afterwards replaces the session's payment details and
-drops the security code, and the server's PAY then fails with no visible cause in the app.
+Order matters here: call `updateSessionWithSecurityCode` **after** the server has put the card
+in the session. A server update that runs afterwards replaces the session's payment details
+and drops the security code, and the server's PAY then fails with no visible cause in the app.
 
-Do not use `updateSessionWithCard` for this: it sends the card number and expiry, which
-replaces the saved card in the session.
+Never use `updateSessionWithCard` with a saved card, in either case: it sends a card number and
+expiry, which replace the saved card in the session.
+
+Not sure which case applies? Run a token payment without the CVV in the test environment. If
+the gateway rejects it for a missing security code, your merchant is in the second case.
+
+The field names on the server side (`sourceOfFunds.token`,
+`sourceOfFunds.provided.card.storedOnFile`, and any `agreement.*` fields your bank asks for)
+come from the Gateway API reference, not from the mobile SDK guides. Confirm them with the bank
+for your API version. The Postman collection in [`example/postman`](example/postman) has a
+request for each server step.
 
 Device wallet:
 
@@ -293,7 +352,7 @@ normally and the payment then fails with `Missing merchant privilege 'Device Pay
 | `bool isInitialized` | Whether `initialize` completed in this Dart isolate. |
 | `initialize(GatewayConfiguration)` | Initializes the native SDK. An equal configuration again is a no-op; a different one throws `alreadyInitialized`. |
 | `updateSessionWithCard(session, card, {additionalFields})` | Stores the card in the gateway session. |
-| `updateSessionWithSecurityCode(session, securityCode, {additionalFields})` | Adds only the security code (CVV) to a session that already holds a card, for a card saved by your server. Sends no other `sourceOfFunds` field. |
+| `updateSessionWithSecurityCode(session, securityCode, {additionalFields})` | Adds only the security code (CVV) to a session that already holds a card saved by your server. Sends no other `sourceOfFunds` field. Needed only when the merchant's contract requires a CVV on saved-card payments; with card on file, skip it. See [Paying with a saved card](#paying-with-a-saved-card). |
 | `authenticatePayer(session, {authenticationTransactionId, options})` | Runs 3-D Secure. Generates a UUID transaction ID when none is given and returns it in the result. |
 | `getAvailableWallet(WalletPaymentRequest)` | Google Pay / Apple Pay / none. Shows no UI. |
 | `payWithDeviceWallet(session, WalletPaymentRequest)` | Shows the wallet sheet and stores the token in the session. |
@@ -325,7 +384,7 @@ Rules that apply to every operation:
 | `GatewayRegion` | `mtf` (test), `europe`, `northAmerica`, `asiaPacific`, `india`, `china`, `saudiArabia`. |
 | `WalletConfiguration` | `googlePayMerchantId` (Android, production), `applePayMerchantIdentifier` (iOS). |
 | `PaymentSession` | Session created by your server. Amount is a decimal string. API version ≥ 61 and identical to the server's. |
-| `CardDetails` | Card entered by the payer; `securityCode` is required, the gateway refuses a card payment without it. `toString()` masks every field. |
+| `CardDetails` | Card typed by the payer; `securityCode` is required, because a typed card is always sent with its CVV (a saved card never goes through `CardDetails`). `toString()` masks every field. |
 | `GatewayException` | A technical or integration failure. Branch on `code`; use `field` and `validationType` for safe field-level feedback. |
 | `GatewayRejectionCause` | The gateway's machine-readable reason: `invalidRequest`, `requestRejected`, `serverBusy`, `serverFailed`, or `unknown`. |
 | `GatewayFields` | Extra gateway fields in dot notation (`billing.address.city`, `customer.email`, `order.item[0].name`), typed setters. `sourceOfFunds.*` is rejected in any spelling. |
@@ -383,7 +442,7 @@ tone and presentation. Never display `GatewayException.message` or `nativeDetail
 |---|---|---|---|
 | `initialize` | `Future<void>` completes. | `invalidArgument`, `initializationFailed`, `alreadyInitialized`, `operationInProgress`, `unknown` | Retry initialization only for a transient failure. For configuration/programming errors, disable payment, log safely, and show “Payment is unavailable right now.” |
 | `updateSessionWithCard` | `Future<void>` completes; the session holds the card. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `unknown` | Put a field message under card number/expiry/CVV when `field` identifies it. For `network`, offer retry. Otherwise show “We could not prepare this card for payment.” |
-| `updateSessionWithSecurityCode` | `Future<void>` completes; only the CVV was added to the saved card. | Same session/gateway failures as card update. | Put a field message under CVV when possible. For a rejected saved card, offer another card rather than asking repeatedly for the same CVV. |
+| `updateSessionWithSecurityCode` (only when the contract requires a CVV on saved cards) | `Future<void>` completes; only the CVV was added to the saved card. | Same session/gateway failures as card update. | Put a field message under CVV when possible. For a rejected saved card, offer another card rather than asking repeatedly for the same CVV. |
 | `authenticatePayer` | `AuthenticationProceed` or `AuthenticationNotProceeded`. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `missingSessionParameter`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `invalidChallengeCompletionUrl`, `uiUnavailable`, `unknown` | Handle `AuthenticationNotProceeded` with the reason table below. On an uncertain network/UI interruption, check order state on the backend before retrying. |
 | `getAvailableWallet` | `googlePay`, `applePay`, or `none`; it presents no UI. | `notInitialized`, `invalidArgument`, `walletConfigurationInvalid`, `uiUnavailable`, `unknown` | Usually hide the wallet button and retain card payment instead of showing a dialog. `none` is not an error. |
 | `payWithDeviceWallet` | `WalletPaymentCompleted` or `WalletPaymentCancelled`. | `notInitialized`, `operationInProgress`, `invalidArgument`, `invalidApiVersion`, `network`, `gatewayRejected`, `invalidGatewayResponse`, `uiUnavailable`, `walletUnavailable`, `walletConfigurationInvalid`, `walletFailed`, `unknown` | Cancellation needs no technical-error dialog. For wallet failures, offer card payment. Check backend state before retrying after an uncertain interruption. |

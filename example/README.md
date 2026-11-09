@@ -97,7 +97,7 @@ Two things to know before running them:
 | 1. Initialization | Region, merchant and wallet settings, Initialize. |
 | 2. Session | Values from the server. |
 | 3. Card | Card fields, Update session with card. |
-| 3b. Saved card (CVV only) | Sends only the CVV typed above, for a session the server already filled with a saved card. |
+| 3b. Saved card (CVV only) | Sends only the CVV typed above, for a session the server already filled with a saved card. Only for a merchant whose contract requires the CVV on saved cards; with card on file, skip section 3 entirely and go to 4. |
 | 4. 3-D Secure | Optional transaction ID, Authenticate payer. |
 | 5. Device wallet | Check available wallet, Pay with device wallet. |
 | Error and concurrency scenarios | Buttons that must end with a specific error code. |
@@ -112,7 +112,9 @@ Card data in the event log is always masked.
 |---|---|---|
 | Initialize | Fill merchant fields → Initialize | `SUCCESS: Initialized` |
 | Card update | Session 1+2 in Postman → copy values → Update session with card | `SUCCESS`; Postman **3. Retrieve Session** shows the card |
-| Saved card (CVV only) | Create a session that already holds a saved card (our backend: `POST /api/v1/payment/mastercard/session` with `card_id`) → paste the session values → type the CVV → Update session with security code | `SUCCESS`; Postman **3. Retrieve Session** still shows the saved card, now with a security code. Skipping this step makes the server's PAY fail. |
+| Save a card | Normal card payment (Postman 1, 2 → app card update → Authenticate payer) → Postman **6. Pay** with `storedOnFile` = `TO_BE_STORED` → **10. Create Token** | Order `CAPTURED`; `savedCardToken` set |
+| Saved card, card on file (no CVV) | Postman 1, 2 → **2b. Put saved card in session** → paste the session values → **skip section 3** → Authenticate payer → Postman **6. Pay** with `storedOnFile` = `STORED` | `PROCEED` (frictionless or after OTP), then order `CAPTURED`. A rejection for a missing security code means the merchant's contract requires the CVV: use the next row |
+| Saved card, CVV required by contract | As above, but type the CVV and press Update session with security code before Authenticate payer | `SUCCESS`; Postman **3. Retrieve Session** still shows the saved card, now with a security code |
 | 3-D Secure | After card update → Authenticate payer | `PROCEED` (frictionless) or the OTP screen, then `PROCEED`. Copy the transaction ID. |
 | Challenge cancel | Authenticate payer → close the challenge screen | `CANCELLED: NOT PROCEEDED (cancelledByUser)` |
 | Server payment | Paste the transaction ID into Postman `authenticationTransactionId` → **4. Authorize** → **5. Capture** → **7. Retrieve Order** | Order `CAPTURED` |

@@ -3,6 +3,20 @@
 All notable changes to this plugin. Versions follow [Semantic Versioning](https://semver.org);
 see "Versioning" in the README.
 
+## Unreleased
+
+Documentation only; no API change.
+
+- Saved cards are now documented as two cases, set by the merchant's contract with the bank.
+  **Card on file**: the payer types no CVV, and the app skips the card step and calls
+  `authenticatePayer` directly. **CVV required**: `updateSessionWithSecurityCode`, unchanged.
+  3-D Secure applies in both cases and may still show the OTP screen. Earlier text said the
+  gateway always refuses a payment without a security code; that holds only for the second
+  case.
+- Postman: FLOW C (save a card, pay with it later), `2b. Put saved card in session`,
+  `10. Create Token`, and a `storedOnFile` variable sent on Authorize and Pay. Not yet run
+  against MTF.
+
 ## 0.2.0 — 2026-09-18
 
 Gateway rejections now say what the gateway objected to, while the API keeps ordinary Dart

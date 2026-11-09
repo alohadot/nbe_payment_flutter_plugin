@@ -23,8 +23,10 @@ import 'authentication_transaction_id.dart';
 /// Typical flow:
 /// 1. [initialize] once with the merchant configuration.
 /// 2. Get a [PaymentSession] from your merchant server.
-/// 3. Add the payment method: [updateSessionWithCard], [payWithDeviceWallet], or
-///    [updateSessionWithSecurityCode] when the server already put a saved card in the session.
+/// 3. Add the payment method: [updateSessionWithCard] or [payWithDeviceWallet]. For a card
+///    saved by the server (a token the server puts in the session), skip this step under a
+///    card-on-file agreement, or call [updateSessionWithSecurityCode] when the merchant's
+///    contract requires the CVV on saved-card payments.
 /// 4. [authenticatePayer] (3-D Secure) and send the result to your server.
 /// 5. The merchant server completes the payment with the gateway.
 ///
@@ -187,10 +189,13 @@ class NbePaymentGateway {
   }
 
   /// Adds only the payer's security code (CVV) to a gateway [session] that already holds a
-  /// card, which is how a payment with a card saved by the merchant server is completed.
+  /// card saved by the merchant server.
   ///
-  /// The gateway refuses a card payment without a security code and a saved card never
-  /// carries one, so the payer types it and it is added here. Only
+  /// Whether this is needed depends on the merchant's contract with the bank, not on the
+  /// plugin. Under a card-on-file agreement the gateway accepts a saved card without a security
+  /// code: skip this method and call [authenticatePayer] directly. When the merchant profile
+  /// requires a security code on every card payment, a saved card (which never carries one)
+  /// needs the payer to type it, and it is added here. Only
   /// `sourceOfFunds.provided.card.securityCode` is sent: the card stored in the session is
   /// left untouched, unlike [updateSessionWithCard], which would replace it.
   ///
