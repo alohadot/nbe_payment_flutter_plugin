@@ -145,8 +145,10 @@ internal class ChallengeScreenGuard(
     }
 
     private fun removeBackBridge(activity: Activity) {
-        val callback = backCallbacks.remove(activity) ?: return
+        // The version check must come first: reading the map casts to OnBackInvokedCallback,
+        // a class that does not exist below API 33, and that cast alone crashes the app there.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val callback = backCallbacks.remove(activity) ?: return
         activity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(callback)
     }
 
