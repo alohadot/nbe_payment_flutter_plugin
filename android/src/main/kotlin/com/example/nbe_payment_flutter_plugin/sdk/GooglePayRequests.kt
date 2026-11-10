@@ -115,7 +115,11 @@ internal fun parseGooglePayPaymentData(paymentDataJson: String): GooglePayPaymen
         JsonParser.parseString(paymentDataJson).asJsonObject.getAsJsonObject("paymentMethodData")
     }.getOrNull() ?: throw IllegalArgumentException("Google Pay response has no payment method data.")
 
-    val token = paymentMethodData.getAsJsonObject("tokenizationData")
+    // Checked, not cast: a malformed response arrives in onActivityResult, where a
+    // ClassCastException would crash the app instead of failing the payment.
+    val token = paymentMethodData.get("tokenizationData")
+        ?.takeIf { it.isJsonObject }
+        ?.asJsonObject
         ?.get("token")
         ?.takeIf { it.isJsonPrimitive }
         ?.asString

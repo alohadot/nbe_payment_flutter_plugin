@@ -5,7 +5,23 @@ see "Versioning" in the README.
 
 ## Unreleased
 
-Documentation only; no API change.
+No API change.
+
+Fixed:
+
+- Android below 13 (API 33): the app crashed after the 3-D Secure OTP screen closed, because
+  the back-button bridge touched a class that exists only from API 33. That code now lives in
+  `BackInvokedBridge`, created only on API 33+, and lint (`NewApi`) rejects any unchecked call
+  into it.
+- Both platforms: a second Flutter engine detaching (a background engine for push messages or
+  background work) failed the payment running on the main engine and released the gateway
+  lock while the SDK was still working. An engine now aborts only the operation it started.
+- Android: a malformed Google Pay response could crash the app with a `ClassCastException`
+  instead of failing the payment as `invalidGatewayResponse`.
+- Android: if the SDK throws while starting authentication, the challenge-screen watcher is
+  stopped instead of staying registered until the next payment.
+
+Documentation:
 
 - Saved cards are now documented as two cases, set by the merchant's contract with the bank.
   **Card on file**: the payer types no CVV, and the app skips the card step and calls

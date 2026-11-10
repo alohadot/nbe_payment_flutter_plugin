@@ -5,8 +5,7 @@ import android.app.Application
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.window.OnBackInvokedCallback
-import android.window.OnBackInvokedDispatcher
+import androidx.annotation.ChecksSdkIntAtLeast
 import java.lang.ref.WeakReference
 
 /**
@@ -23,8 +22,8 @@ import java.lang.ref.WeakReference
  *    then the legacy method is never called. The payer's back press closes the screen without
  *    running the SDK's cancel logic, so the issuer is never told and the SDK never answers.
  *    This guard registers a callback on the new dispatcher that calls the legacy method, which
- *    is exactly what the SDK expects. Devices below API 33 keep the legacy path and need no
- *    bridge.
+ *    is exactly what the SDK expects ([BackInvokedBridge]). Devices below API 33 keep the
+ *    legacy path and need no bridge — and must never load it, see that class.
  *
  * 2. **A stranded operation.** Whatever the reason a challenge screen stops being the payer's
  *    screen, [ChallengeWatchdog] fails the operation so the gateway lock is released. Lifecycle
@@ -54,8 +53,12 @@ internal class ChallengeScreenGuard(
     private var onStranded: (() -> Unit)? = null
     private var isRegistered = false
 
-    /** Back callbacks registered by this guard, so each is removed with its screen. */
-    private val backCallbacks = mutableMapOf<Activity, OnBackInvokedCallback>()
+    /**
+     * `null` below API 33, which has no back dispatcher. Every use repeats the version check so
+     * lint can prove none of it runs on an older device.
+     */
+    private val backBridge: BackInvokedBridge? =
+        if (hasBackDispatcher()) BackInvokedBridge() else null
 
     /**
      * Starts guarding one authentication started from [hostActivity].
@@ -82,13 +85,16 @@ internal class ChallengeScreenGuard(
             application?.unregisterActivityLifecycleCallbacks(this)
             isRegistered = false
         }
-        backCallbacks.keys.toList().forEach(::removeBackBridge)
+        if (hasBackDispatcher()) backBridge?.removeAll()
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
         if (activity === hostActivity?.get()) return
         watchdog.onChallengeScreenOpened()
-        addBackBridge(activity)
+        // Limited to the 3DS SDK's own screens: the host app's keep their own back behavior.
+        if (hasBackDispatcher() && activity.javaClass.name.startsWith(CHALLENGE_SDK_PACKAGE)) {
+            backBridge?.add(activity)
+        }
     }
 
     override fun onActivityStarted(activity: Activity) {
@@ -113,7 +119,7 @@ internal class ChallengeScreenGuard(
 
     override fun onActivityDestroyed(activity: Activity) {
         if (activity === hostActivity?.get()) return
-        removeBackBridge(activity)
+        if (hasBackDispatcher()) backBridge?.remove(activity)
         watchdog.onChallengeScreenClosed(activity.isChangingConfigurations)
     }
 
@@ -126,33 +132,10 @@ internal class ChallengeScreenGuard(
         callback?.invoke()
     }
 
-    private fun addBackBridge(activity: Activity) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        if (!activity.javaClass.name.startsWith(CHALLENGE_SDK_PACKAGE)) return
-        if (backCallbacks.containsKey(activity)) return
-
-        // Calls the SDK's own handler, which sends the issuer a cardholder cancellation and
-        // then closes the screen. Deprecated for apps, but it is the entry point this SDK has.
-        val callback = OnBackInvokedCallback {
-            @Suppress("DEPRECATION")
-            activity.onBackPressed()
-        }
-        activity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
-            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-            callback,
-        )
-        backCallbacks[activity] = callback
-    }
-
-    private fun removeBackBridge(activity: Activity) {
-        // The version check must come first: reading the map casts to OnBackInvokedCallback,
-        // a class that does not exist below API 33, and that cast alone crashes the app there.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val callback = backCallbacks.remove(activity) ?: return
-        activity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(callback)
-    }
-
     private companion object {
+        @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
+        fun hasBackDispatcher() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
         /** Package of the bundled 3DS SDK, which owns the challenge screen. */
         const val CHALLENGE_SDK_PACKAGE = "com.usdk.android."
 

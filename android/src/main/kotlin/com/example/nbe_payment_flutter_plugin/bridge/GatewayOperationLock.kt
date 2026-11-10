@@ -17,31 +17,38 @@ internal object GatewayOperationLock {
     /** Fails the running operation, if any. Set while an operation holds the lock. */
     private var failRunningOperation: ((GatewayBridgeError) -> Unit)? = null
 
+    /** Whoever started the running operation; one host API per Flutter engine. */
+    private var runningOperationOwner: Any? = null
+
     val isBusy: Boolean get() = failRunningOperation != null
 
-    fun acquire(failOperation: (GatewayBridgeError) -> Unit) {
+    fun acquire(owner: Any, failOperation: (GatewayBridgeError) -> Unit) {
+        runningOperationOwner = owner
         failRunningOperation = failOperation
     }
 
     fun release() {
+        runningOperationOwner = null
         failRunningOperation = null
     }
 
     /**
-     * Fails the running operation and releases the lock.
+     * Fails the running operation and releases the lock, if [owner] started it.
      *
      * Used when the operation can no longer finish, for example when the engine goes away
      * while a wallet sheet is open: without this the lock would stay held for the lifetime of
      * the process and every later call would report "operation in progress".
+     *
+     * An operation started by another owner is left alone: apps commonly attach and detach a
+     * background engine (push messages, background work) while the main engine is paying.
      */
-    fun abortRunningOperation(error: GatewayBridgeError) {
+    fun abortRunningOperation(owner: Any, error: GatewayBridgeError) {
+        if (runningOperationOwner !== owner) return
         val failOperation = failRunningOperation ?: return
-        failRunningOperation = null
+        release()
         failOperation(error)
     }
 
     @VisibleForTesting
-    fun resetForTesting() {
-        failRunningOperation = null
-    }
+    fun resetForTesting() = release()
 }

@@ -77,12 +77,13 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
     }
 
     /**
-     * Called when the Flutter engine detaches: fails a running operation so the lock is not
-     * held by a call whose reply can no longer be delivered.
+     * Called when the Flutter engine detaches: fails a running operation started from this
+     * engine so the lock is not held by a call whose reply can no longer be delivered.
      */
     fun dispose() {
         GatewayOperationLock.abortRunningOperation(
-            gatewayBridgeError(
+            owner = this,
+            error = gatewayBridgeError(
                 code = errorCodeUnknown,
                 message = "The Flutter engine was detached before the operation finished.",
             ),
@@ -106,7 +107,7 @@ class GatewayHostApiImpl(private val sdkAdapter: GatewaySdkAdapter) : NbeGateway
         }
 
         lateinit var complete: (Result<T>) -> Unit
-        GatewayOperationLock.acquire { error -> complete(Result.failure(error)) }
+        GatewayOperationLock.acquire(owner = this) { error -> complete(Result.failure(error)) }
         complete = createSingleReply { result ->
             GatewayOperationLock.release()
             callback(result)

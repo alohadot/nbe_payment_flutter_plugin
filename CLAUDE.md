@@ -197,6 +197,13 @@ Deliberate, with the reason. Do not "fix" one without reading the reason first.
   task of its own: a second card in recents, and back moved that task to the background instead
   of cancelling, holding the gateway lock forever. The plugin manifest replaces the launch mode
   with `standard`. Do not drop that override, and re-check it after a 3DS SDK upgrade.
+- The plugin's `minSdk` is 24, but the back-button bridge needs `android.window` (API 33). Any
+  code touching those types outside `BackInvokedBridge` — even a generic map read, where the
+  compiler adds a cast — crashes older devices with `NoClassDefFoundError` (seen on Android 11
+  after an OTP screen), and lint does not flag the cast. Keep such code in that
+  `@RequiresApi(33)` class and call it only behind a version check.
+- `GatewayOperationLock` is process-wide, and apps routinely run a second engine in the
+  background. An engine's `dispose` must abort only the operation it started.
 - Request code `10001` belongs to the Gateway SDK's Google Pay sheet.
 - The native SDKs stay initialized for the whole process: after a hot restart Dart thinks it is
   not initialized while the native side is. Only the merchant identity is fixed per process;

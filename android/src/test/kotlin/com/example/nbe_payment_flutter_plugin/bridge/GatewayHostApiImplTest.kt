@@ -329,6 +329,23 @@ internal class GatewayHostApiImplTest {
     }
 
     @Test
+    fun disposingAnotherEngineLeavesTheRunningOperationAlone() {
+        // A background engine (push messages, background work) attaches and detaches while
+        // the main engine is in the middle of a payment.
+        val backgroundHostApi = GatewayHostApiImpl(ControllableSdkAdapter())
+        initialize()
+
+        backgroundHostApi.dispose()
+
+        assertTrue(results.isEmpty())
+        assertTrue(GatewayOperationLock.isBusy)
+
+        adapter.pendingCallbacks.single()(Result.success(Unit))
+        assertEquals(listOf(Result.success(Unit)), results)
+        assertFalse(GatewayOperationLock.isBusy)
+    }
+
+    @Test
     fun releasesTheLockAfterAThrownException() {
         adapter.errorToThrow = IllegalStateException()
         initialize()

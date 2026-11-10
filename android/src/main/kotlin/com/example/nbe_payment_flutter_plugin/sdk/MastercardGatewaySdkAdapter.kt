@@ -279,14 +279,20 @@ class MastercardGatewaySdkAdapter(
         }
 
         SdkNetworkLogSilencer.silence()
-        // An empty map is also the SDK's own default for this parameter.
-        AuthenticationHandler.authenticate(
-            activity,
-            session,
-            transactionId,
-            payload ?: GatewayMap(),
-            authenticationCallback,
-        )
+        try {
+            // An empty map is also the SDK's own default for this parameter.
+            AuthenticationHandler.authenticate(
+                activity,
+                session,
+                transactionId,
+                payload ?: GatewayMap(),
+                authenticationCallback,
+            )
+        } catch (error: Exception) {
+            // No challenge will follow; the bridge turns the exception into the reply.
+            challengeGuard.stop()
+            throw error
+        }
     }
 
     override fun getAvailableWallet(request: WalletRequestMessage, callback: (Result<DeviceWallet>) -> Unit) {

@@ -84,6 +84,7 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
   func dispose() {
     sdkAdapter.abortPendingOperations()
     GatewayOperationLock.abortRunningOperation(
+      owner: self,
       gatewayBridgeError(
         code: errorCodeUnknown,
         message: "The Flutter engine was detached before the operation finished."))
@@ -106,7 +107,7 @@ final class GatewayHostApiImpl: NbeGatewayHostApi {
       GatewayOperationLock.release()
       completion(result)
     }
-    GatewayOperationLock.acquire { error in complete(.failure(error)) }
+    GatewayOperationLock.acquire(owner: self) { error in complete(.failure(error)) }
     operation(complete)
   }
 

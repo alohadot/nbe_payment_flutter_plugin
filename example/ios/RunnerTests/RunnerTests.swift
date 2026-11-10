@@ -150,6 +150,25 @@ final class GatewayHostApiImplTests: XCTestCase {
     XCTAssertEqual(replies, 1)
   }
 
+  func testDisposingAnotherEngineLeavesTheRunningOperationAlone() {
+    // A background engine (push messages, background work) attaches and detaches while the
+    // main engine is in the middle of a payment.
+    let adapter = ControllableSdkAdapter()
+    let hostApi = GatewayHostApiImpl(sdkAdapter: adapter)
+    let backgroundHostApi = GatewayHostApiImpl(sdkAdapter: ControllableSdkAdapter())
+    var result: Result<Void, Error>?
+
+    hostApi.initialize(request: request) { result = $0 }
+    backgroundHostApi.dispose()
+
+    XCTAssertNil(result)
+    XCTAssertTrue(GatewayOperationLock.isBusy)
+
+    adapter.pendingVoidCompletions[0](.success(()))
+    guard case .success? = result else { return XCTFail("expected the SDK's own answer") }
+    XCTAssertFalse(GatewayOperationLock.isBusy)
+  }
+
   func testTheLockIsSharedBetweenHostApiInstances() {
     // Two Flutter engines in one process share the SDK singletons.
     let first = GatewayHostApiImpl(sdkAdapter: ControllableSdkAdapter())

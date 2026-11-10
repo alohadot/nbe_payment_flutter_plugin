@@ -119,6 +119,11 @@ internal class GooglePayRequestsTest {
     fun responsesWithoutTokenAreRejected() {
         assertFailsWith<IllegalArgumentException> { parseGooglePayPaymentData("""{"paymentMethodData":{}}""") }
         assertFailsWith<IllegalArgumentException> { parseGooglePayPaymentData("not json") }
+        // Wrong shapes must be rejected too, not thrown as a ClassCastException.
+        assertFailsWith<IllegalArgumentException> {
+            parseGooglePayPaymentData("""{"paymentMethodData":{"tokenizationData":"x"}}""")
+        }
+        assertFailsWith<IllegalArgumentException> { parseGooglePayPaymentData("""{"paymentMethodData":"x"}""") }
     }
 
     @Test

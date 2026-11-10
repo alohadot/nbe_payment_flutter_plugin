@@ -14,6 +14,7 @@ Android Studio/AGP versions, tester, date.
 - [ ] `test/api/nbe_payment_versions_test.dart` passes (version constants match pubspec and the
       bundled SDKs)
 - [ ] Android JVM tests: `cd example/android && ./gradlew :nbe_payment_flutter_plugin:testDebugUnitTest`
+- [ ] Android lint, no `NewApi` errors: `cd example/android && ./gradlew :nbe_payment_flutter_plugin:lintDebug`
 - [ ] iOS unit tests: Xcode → `Runner` scheme → Product > Test
 - [ ] Example widget test: `cd example && flutter test`
 - [ ] Integration tests on an Android device/emulator (debug)
@@ -77,6 +78,8 @@ Use `example/postman/nbe_mtf_payment_flow.postman_collection.json`.
 | Cancel a challenge, then retry authentication on the same session | ☐ | ☐ |
 | Hot restart during development, then initialize again with the same values succeeds | ☐ | ☐ |
 | Android: no crash or stale Activity after "Don't keep activities" (Developer options) | ☐ | — |
+| Android 12 or older (below API 33): OTP screen completes and is cancelled with back, no crash | ☐ | — |
+| Android 13 or newer: back on the OTP screen cancels it and the result arrives | ☐ | — |
 | iOS: challenge presentation still works after presenting and dismissing another modal | — | ☐ |
 
 ## 7. Security
